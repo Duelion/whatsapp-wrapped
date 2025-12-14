@@ -1,10 +1,21 @@
-# WhatsApp Wrapped 📊
+<p align="center">
+  <img src=".github/assets/ws_logo.png" alt="WhatsApp Wrapped Logo" width="200">
+</p>
 
-Create beautiful Spotify Wrapped-style visualizations for your WhatsApp group chats! Analyze your chat activity, discover patterns, and generate stunning HTML/PDF reports with a sleek terminal aesthetic.
+<h1 align="center">WhatsApp Wrapped</h1>
+
+<p align="center">
+  <strong>Create beautiful Spotify Wrapped-style visualizations for your WhatsApp group chats!</strong>
+</p>
+
+<p align="center">
+  Analyze your chat activity, discover patterns, and generate stunning HTML/PDF reports with a sleek terminal aesthetic.
+</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
+  <img src="https://img.shields.io/github/stars/Duelion/whatsapp-wrapped?style=social" alt="GitHub Stars">
 </p>
 
 <p align="center">
@@ -16,6 +27,8 @@ Create beautiful Spotify Wrapped-style visualizations for your WhatsApp group ch
     <img src="https://cdn.buymeacoffee.com/buttons/v2/default-red.png" alt="Buy Me A Coffee" width="150">
   </a>
 </p>
+
+---
 
 ## ✨ Features
 
@@ -58,7 +71,7 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 2. **Clone and install the project**:
 
 ```bash
-git clone https://github.com/yourusername/whatsapp-wrapped.git
+git clone https://github.com/Duelion/whatsapp-wrapped.git
 cd whatsapp-wrapped
 
 # Install dependencies
@@ -153,23 +166,23 @@ whatsapp-wrapped/
 │   ├── generator.py      # Report generation (CLI entry point)
 │   └── templates/
 │       └── report.html   # Report template
-├── tests/                # Test suite
+├── tests/                 # Test suite
 ├── config/
-│   └── config.yaml       # Configuration example
-├── pyproject.toml        # Project metadata and dependencies
-├── README.md             # This file
-└── CONTRIBUTING.md       # Development guide
+│   └── config.yaml        # Configuration example
+├── whatsapp_wrapped.ipynb # Google Colab notebook
+├── pyproject.toml         # Project metadata and dependencies
+└── README.md              # This file
 ```
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+Contributions are welcome! Here's how to get started:
 
 ### Development Setup
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/whatsapp-wrapped.git
+git clone https://github.com/Duelion/whatsapp-wrapped.git
 cd whatsapp-wrapped
 
 # Install with development dependencies
@@ -241,10 +254,16 @@ Inspired by Spotify Wrapped and the desire to celebrate our digital conversation
 
 ## 📞 Support
 
-- 🐛 [Report Issues](https://github.com/yourusername/whatsapp-wrapped/issues)
-- 💡 [Feature Requests](https://github.com/yourusername/whatsapp-wrapped/issues)
-- 📖 [Documentation](https://github.com/yourusername/whatsapp-wrapped)
+- 🐛 [Report Issues](https://github.com/Duelion/whatsapp-wrapped/issues)
+- 💡 [Feature Requests](https://github.com/Duelion/whatsapp-wrapped/issues)
+- ⭐ [Star the project](https://github.com/Duelion/whatsapp-wrapped) if you find it useful!
 
 ---
 
-Made with ❤️ for WhatsApp users who love data
+<p align="center">
+  Made with ❤️ for WhatsApp users who love data
+  <br><br>
+  <a href="https://github.com/Duelion/whatsapp-wrapped">
+    <img src="https://img.shields.io/github/stars/Duelion/whatsapp-wrapped?style=social" alt="GitHub Stars">
+  </a>
+</p>
