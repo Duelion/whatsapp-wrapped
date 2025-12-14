@@ -30,11 +30,11 @@ Create beautiful Spotify Wrapped-style visualizations for your WhatsApp group ch
 1. **Install uv** (fast Python package manager):
 
 ```bash
-# Windows (PowerShell)
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-
 # macOS/Linux
 curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows (PowerShell)
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
 2. **Clone and install the project**:

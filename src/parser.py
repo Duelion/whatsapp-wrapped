@@ -40,14 +40,34 @@ DATE_FORMATS = [
     "%Y-%m-%d, %H:%M:%S",  # ISO-ish format
     "%d.%m.%y, %H:%M:%S",  # German format with dots
     "%d.%m.%Y, %H:%M:%S",
+    # 12-hour AM/PM formats
+    "%m/%d/%y, %I:%M:%S %p",  # US 12-hour with seconds: 12/25/23, 3:45:30 PM
+    "%m/%d/%y, %I:%M %p",  # US 12-hour: 12/25/23, 3:45 PM
+    "%d/%m/%y, %I:%M:%S %p",  # EU 12-hour with seconds
+    "%d/%m/%y, %I:%M %p",  # EU 12-hour
+    "%m/%d/%Y, %I:%M:%S %p",  # US 12-hour 4-digit year with seconds
+    "%m/%d/%Y, %I:%M %p",  # US 12-hour 4-digit year
+    "%d/%m/%Y, %I:%M:%S %p",  # EU 12-hour 4-digit year with seconds
+    "%d/%m/%Y, %I:%M %p",  # EU 12-hour 4-digit year
+    "%d-%m-%y, %I:%M:%S %p",  # DD-MM-YY 12-hour with seconds
+    "%d-%m-%y, %I:%M %p",  # DD-MM-YY 12-hour
+    "%d-%m-%Y, %I:%M:%S %p",  # DD-MM-YYYY 12-hour with seconds
+    "%d-%m-%Y, %I:%M %p",  # DD-MM-YYYY 12-hour
 ]
 
 # Pattern to match WhatsApp message lines
 # Handles formats like: [DD-MM-YY, HH:MM:SS] Name: Message
 # Or: DD/MM/YY, HH:MM - Name: Message
+# System messages don't have the "Name:" part
 MESSAGE_PATTERNS = [
     r"\[(.+?)\] (.+?):\s*(.*)",  # [timestamp] name: message (iOS export)
-    r"(\d{1,2}[-/\.]\d{1,2}[-/\.]\d{2,4},?\s*\d{1,2}:\d{2}(?::\d{2})?(?:\s*[APap][Mm])?)\s*-\s*(.+?):\s*(.*)",  # Android export
+    r"(\d{1,2}[-/\.]\d{1,2}[-/\.]\d{2,4},?\s*\d{1,2}:\d{2}(?::\d{2})?(?:\s*[APap][Mm])?)\s*-\s*(.+?):\s*(.*)",  # Android export with author
+]
+
+# Patterns for system messages (no author/colon)
+SYSTEM_MESSAGE_PATTERNS = [
+    r"\[(.+?)\] (.+)$",  # [timestamp] system message (iOS export)
+    r"(\d{1,2}[-/\.]\d{1,2}[-/\.]\d{2,4},?\s*\d{1,2}:\d{2}(?::\d{2})?(?:\s*[APap][Mm])?)\s*-\s*(.+)$",  # Android export system message
 ]
 
 
@@ -114,6 +134,10 @@ def _load_from_txt(txt_path: Path) -> str:
 def _parse_timestamp(timestamp_str: str) -> datetime | None:
     """Try to parse a timestamp string using various formats."""
     timestamp_str = timestamp_str.strip()
+    
+    # Normalize AM/PM variations (e.g., "am" -> "AM", "11PM" -> "11 PM")
+    timestamp_str = re.sub(r'(\d)([APap][Mm])', r'\1 \2', timestamp_str)  # Add space before AM/PM
+    timestamp_str = re.sub(r'\b([APap][Mm])\b', lambda m: m.group(1).upper(), timestamp_str)  # Uppercase AM/PM
 
     for fmt in DATE_FORMATS:
         try:
@@ -122,6 +146,44 @@ def _parse_timestamp(timestamp_str: str) -> datetime | None:
             continue
 
     return None
+
+
+def _detect_date_order(raw_text: str) -> str:
+    """
+    Detect whether dates are in DD/MM or MM/DD format by analyzing the chat.
+    
+    Returns:
+        "DD/MM" if day-first format detected
+        "MM/DD" if month-first format detected  
+        "ambiguous" if cannot be determined
+    """
+    # Extract all date-like patterns
+    date_pattern = r'(\d{1,2})[-/\.](\d{1,2})[-/\.](\d{2,4})'
+    matches = re.findall(date_pattern, raw_text)
+    
+    has_first_over_12 = False
+    has_second_over_12 = False
+    
+    for d1, d2, year in matches:
+        d1_int = int(d1)
+        d2_int = int(d2)
+        
+        if d1_int > 12:
+            has_first_over_12 = True
+        if d2_int > 12:
+            has_second_over_12 = True
+    
+    # If first component > 12, it must be DD/MM
+    if has_first_over_12 and not has_second_over_12:
+        return "DD/MM"
+    
+    # If second component > 12, it must be MM/DD
+    if has_second_over_12 and not has_first_over_12:
+        return "MM/DD"
+    
+    # If both have values > 12, something is wrong (shouldn't happen)
+    # If neither has values > 12, we can't determine
+    return "ambiguous"
 
 
 def _classify_message_type(message: str) -> str:
@@ -171,9 +233,28 @@ def parse_chat(raw_text: str) -> pd.DataFrame:
     # Split by newlines that start a new message (with timestamp)
     # Handle both \r\n and \n line endings
     raw_text = raw_text.replace("\r\n", "\n")
+    
+    # Detect date order (DD/MM vs MM/DD) to prioritize correct formats
+    date_order = _detect_date_order(raw_text)
+    
+    # Reorder DATE_FORMATS based on detected order
+    global DATE_FORMATS
+    original_formats = DATE_FORMATS.copy()
+    
+    if date_order == "DD/MM":
+        # Prioritize DD/MM formats (those starting with %d)
+        dd_first = [f for f in DATE_FORMATS if f.startswith("%d")]
+        mm_first = [f for f in DATE_FORMATS if f.startswith("%m")]
+        DATE_FORMATS = dd_first + mm_first
+    elif date_order == "MM/DD":
+        # Prioritize MM/DD formats (those starting with %m)
+        mm_first = [f for f in DATE_FORMATS if f.startswith("%m")]
+        dd_first = [f for f in DATE_FORMATS if f.startswith("%d")]
+        DATE_FORMATS = mm_first + dd_first
+    # If ambiguous, keep original order (DD/MM first by default)
 
     # Try different patterns to find the right one for this export
-    for pattern in MESSAGE_PATTERNS:
+    for pattern_idx, pattern in enumerate(MESSAGE_PATTERNS):
         # Split text into potential message blocks
         # Messages can span multiple lines, so we need to handle continuations
         lines = raw_text.split("\n")
@@ -181,14 +262,31 @@ def parse_chat(raw_text: str) -> pd.DataFrame:
         current_message = None
 
         for line in lines:
+            # Strip Unicode direction marks (LRM/RLM) that can appear at line start
+            line = line.lstrip('\u200e\u200f')
+            
             match = re.match(pattern, line)
+            
+            # If user message pattern doesn't match, try system message pattern
+            is_system = False
+            if not match and pattern_idx < len(SYSTEM_MESSAGE_PATTERNS):
+                system_pattern = SYSTEM_MESSAGE_PATTERNS[pattern_idx]
+                match = re.match(system_pattern, line)
+                is_system = True
 
             if match:
                 # Save previous message if exists
                 if current_message:
                     messages.append(current_message)
 
-                timestamp_str, name, message = match.groups()
+                if is_system:
+                    # System message: timestamp, message_text
+                    timestamp_str, message = match.groups()
+                    name = "System"  # Mark as system message
+                else:
+                    # User message: timestamp, name, message
+                    timestamp_str, name, message = match.groups()
+                    
                 timestamp = _parse_timestamp(timestamp_str)
 
                 if timestamp:
@@ -212,6 +310,9 @@ def parse_chat(raw_text: str) -> pd.DataFrame:
         # If we found messages with this pattern, we're done
         if messages:
             break
+    
+    # Restore original DATE_FORMATS order for future calls
+    DATE_FORMATS = original_formats
 
     if not messages:
         raise ValueError(
