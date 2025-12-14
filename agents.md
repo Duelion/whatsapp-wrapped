@@ -33,17 +33,20 @@ You need to provide your own chat export file in `tests/data/` directory to run 
 Tests automatically use the chat data file located in `tests/data/` directory. 
 The test will find any `.zip` or `.txt` file in that directory (there should only be one).
 
-Use `uv run` for running tests:
+**ALWAYS use `uv run` for running tests**:
 
 ```bash
 # Run all tests
 uv run pytest
 
-# Run specific test file
-uv run pytest tests/test_parser.py
-
-# Run with verbose output
+# Run all tests with verbose output
 uv run pytest -v
+
+# Run specific test file
+uv run pytest tests/test_parser.py -v
+
+# Run tests in a specific directory
+uv run pytest tests/ -v
 
 # Run with coverage report
 uv run pytest --cov=src --cov-report=html
@@ -51,6 +54,11 @@ uv run pytest --cov=src --cov-report=html
 # Run with coverage and save to htmlcov/ directory
 uv run pytest --cov=src --cov-report=html --cov-report=term
 ```
+
+**Test Coverage:**
+- `test_parser.py` - Parser functionality, message type classification, filtering
+- `test_analytics.py` - Analytics engine, user stats, time patterns, emoji extraction
+- `test_cli.py` - CLI argument parsing, all command-line options and flags
 
 ### Generate Test Report
 
