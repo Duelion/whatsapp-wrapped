@@ -8,7 +8,7 @@ Create beautiful Spotify Wrapped-style visualizations for your WhatsApp group ch
 </p>
 
 <p align="center">
-  <a href="https://colab.research.google.com/github/fer-lion/whatsapp-wrapped/blob/main/whatsapp_wrapped.ipynb" target="_blank">
+  <a href="https://colab.research.google.com/github/Duelion/whatsapp-wrapped/blob/main/whatsapp_wrapped.ipynb" target="_blank">
     <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" height="28">
   </a>
   &nbsp;&nbsp;
@@ -33,7 +33,7 @@ Create beautiful Spotify Wrapped-style visualizations for your WhatsApp group ch
 
 The easiest way to use WhatsApp Wrapped - no installation needed!
 
-<a href="https://colab.research.google.com/github/fer-lion/whatsapp-wrapped/blob/main/whatsapp_wrapped.ipynb" target="_blank">
+<a href="https://colab.research.google.com/github/Duelion/whatsapp-wrapped/blob/main/whatsapp_wrapped.ipynb" target="_blank">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" height="32">
 </a>
 
