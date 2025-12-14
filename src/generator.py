@@ -81,6 +81,12 @@ def generate_html_report(
         hourly_sparkline_fig = create_user_hourly_sparkline(user_stat.hourly_activity, user_stat.name)
         user_hourly_sparklines[user_stat.name] = chart_to_html(hourly_sparkline_fig, include_plotlyjs=False)
 
+    # Calculate user badges
+    if not quiet:
+        print("[*] Calculating achievement badges...")
+    from .analytics import calculate_badges
+    user_badges = calculate_badges(analytics.user_stats)
+
     # Set up Jinja2 environment
     template_dir = get_template_dir()
     env = Environment(
@@ -103,6 +109,7 @@ def generate_html_report(
         charts=charts_html,
         user_sparklines=user_sparklines,
         user_hourly_sparklines=user_hourly_sparklines,
+        user_badges=user_badges,
         generation_date=datetime.now().strftime("%Y-%m-%d %H:%M"),
         formatted_hour=formatted_hour,
         hour_emoji=hour_emoji,
@@ -304,6 +311,12 @@ def generate_full_report(
         hourly_sparkline_fig = create_user_hourly_sparkline(user_stat.hourly_activity, user_stat.name)
         user_hourly_sparklines[user_stat.name] = chart_to_html(hourly_sparkline_fig, include_plotlyjs=False)
 
+    # Calculate user badges
+    if not quiet:
+        print("[*] Calculating achievement badges...")
+    from .analytics import calculate_badges
+    user_badges = calculate_badges(analytics.user_stats)
+
     # Set up Jinja2 environment
     template_dir = get_template_dir()
     env = Environment(
@@ -341,6 +354,7 @@ def generate_full_report(
         charts=charts_html,
         user_sparklines=user_sparklines,
         user_hourly_sparklines=user_hourly_sparklines,
+        user_badges=user_badges,
         generation_date=datetime.now().strftime("%Y-%m-%d %H:%M"),
         fixed_layout=fixed_layout,
         formatted_hour=formatted_hour,

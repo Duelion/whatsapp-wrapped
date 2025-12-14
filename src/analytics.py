@@ -406,3 +406,254 @@ def get_activity_emoji(category: str) -> str:
         return "🐦"
     else:
         return "⚖️"
+
+
+# Badge definitions for user achievements
+BADGE_DEFINITIONS = {
+    "streak_master": {
+        "emoji": "🔥",
+        "label": "Streak Master",
+        "description": "Longest consecutive days active",
+    },
+    "ghost": {
+        "emoji": "👻",
+        "label": "Ghost",
+        "description": "Longest silence between messages",
+    },
+    "night_owl": {
+        "emoji": "🦉",
+        "label": "Night Owl",
+        "description": "Most active during late night hours",
+    },
+    "early_bird": {
+        "emoji": "🐦",
+        "label": "Early Bird",
+        "description": "Most active in the morning",
+    },
+    "emoji_king": {
+        "emoji": "😂",
+        "label": "Emoji King",
+        "description": "Most emojis used",
+    },
+    "shutterbug": {
+        "emoji": "📸",
+        "label": "Shutterbug",
+        "description": "Most images shared",
+    },
+    "director": {
+        "emoji": "🎬",
+        "label": "Director",
+        "description": "Most videos shared",
+    },
+    "sticker_maniac": {
+        "emoji": "🎭",
+        "label": "Sticker Maniac",
+        "description": "Most stickers used",
+    },
+    "voice_actor": {
+        "emoji": "🎤",
+        "label": "Voice Actor",
+        "description": "Most audio messages",
+    },
+    "link_sharer": {
+        "emoji": "🔗",
+        "label": "Link Sharer",
+        "description": "Most links shared",
+    },
+    "novelist": {
+        "emoji": "📝",
+        "label": "Novelist",
+        "description": "Longest average message length",
+    },
+    "speedster": {
+        "emoji": "⚡",
+        "label": "Speedster",
+        "description": "Shortest average message length",
+    },
+}
+
+
+def calculate_badges(user_stats: list[UserStats]) -> dict[str, list[dict]]:
+    """
+    Calculate achievement badges for users based on their stats.
+    
+    Returns a dict mapping username to list of badge dicts with:
+    - badge_id: the badge identifier
+    - emoji: the badge emoji
+    - label: the badge label
+    - detail: specific achievement detail
+    
+    Args:
+        user_stats: List of UserStats objects
+    
+    Returns:
+        Dict mapping username to list of earned badges
+    """
+    import math
+    
+    if not user_stats:
+        return {}
+    
+    badges_by_user = {user.name: [] for user in user_stats}
+    
+    def _is_valid_value(val, threshold):
+        """Check if value is valid (not None, not NaN, above threshold)."""
+        if val is None:
+            return False
+        if isinstance(val, float) and math.isnan(val):
+            return False
+        return val > threshold
+    
+    # Helper to find max value user(s) for a metric
+    def award_max_badge(badge_id: str, metric_func, detail_func=None, min_value=0):
+        """Award badge to user(s) with maximum value for a metric."""
+        values = [(user, metric_func(user)) for user in user_stats]
+        # Filter out NaN values and values below threshold
+        values = [(user, val) for user, val in values if _is_valid_value(val, min_value)]
+        
+        if not values:
+            return
+        
+        max_value = max(val for _, val in values)
+        winners = [user for user, val in values if val == max_value]
+        
+        badge_def = BADGE_DEFINITIONS[badge_id]
+        for winner in winners:
+            detail = detail_func(winner, max_value) if detail_func else f"{max_value}"
+            badges_by_user[winner.name].append({
+                "badge_id": badge_id,
+                "emoji": badge_def["emoji"],
+                "label": badge_def["label"],
+                "detail": detail,
+            })
+    
+    # Helper to find min value user(s) for a metric
+    def award_min_badge(badge_id: str, metric_func, detail_func=None, threshold=0):
+        """Award badge to user(s) with minimum value for a metric."""
+        values = [(user, metric_func(user)) for user in user_stats]
+        # Filter out NaN values and values at or below threshold
+        values = [(user, val) for user, val in values if _is_valid_value(val, threshold)]
+        
+        if not values:
+            return
+        
+        min_val = min(val for _, val in values)
+        winners = [user for user, val in values if val == min_val]
+        
+        badge_def = BADGE_DEFINITIONS[badge_id]
+        for winner in winners:
+            detail = detail_func(winner, min_val) if detail_func else f"{min_val}"
+            badges_by_user[winner.name].append({
+                "badge_id": badge_id,
+                "emoji": badge_def["emoji"],
+                "label": badge_def["label"],
+                "detail": detail,
+            })
+    
+    # Streak Master - longest consecutive days
+    award_max_badge(
+        "streak_master",
+        lambda u: u.longest_streak_days,
+        lambda u, v: f"{int(v)} consecutive days",
+        min_value=1
+    )
+    
+    # Ghost - longest silence
+    award_max_badge(
+        "ghost",
+        lambda u: u.longest_silence_days,
+        lambda u, v: f"{int(v)} days silent",
+        min_value=1
+    )
+    
+    # Night Owl - calculate percentage of messages during night hours (0-6, 18-24)
+    def night_percentage(user):
+        night_hours = user.hourly_activity[list(range(0, 6)) + list(range(18, 24))].sum()
+        total = user.hourly_activity.sum()
+        return (night_hours / total * 100) if total > 0 else 0
+    
+    award_max_badge(
+        "night_owl",
+        night_percentage,
+        lambda u, v: f"{int(v)}% night messages",
+        min_value=40  # At least 40% night messages
+    )
+    
+    # Early Bird - calculate percentage of messages during morning hours (6-12)
+    def morning_percentage(user):
+        morning_hours = user.hourly_activity[list(range(6, 12))].sum()
+        total = user.hourly_activity.sum()
+        return (morning_hours / total * 100) if total > 0 else 0
+    
+    award_max_badge(
+        "early_bird",
+        morning_percentage,
+        lambda u, v: f"{int(v)}% morning messages",
+        min_value=30  # At least 30% morning messages
+    )
+    
+    # Emoji King - most emojis used
+    award_max_badge(
+        "emoji_king",
+        lambda u: u.emoji_count,
+        lambda u, v: f"{int(v):,} emojis used",
+        min_value=10
+    )
+    
+    # Shutterbug - most images
+    award_max_badge(
+        "shutterbug",
+        lambda u: u.message_types.get("image", 0),
+        lambda u, v: f"{int(v):,} images shared",
+        min_value=5
+    )
+    
+    # Director - most videos
+    award_max_badge(
+        "director",
+        lambda u: u.message_types.get("video", 0),
+        lambda u, v: f"{int(v):,} videos shared",
+        min_value=3
+    )
+    
+    # Sticker Maniac - most stickers
+    award_max_badge(
+        "sticker_maniac",
+        lambda u: u.message_types.get("sticker", 0),
+        lambda u, v: f"{int(v):,} stickers sent",
+        min_value=5
+    )
+    
+    # Voice Actor - most audio messages
+    award_max_badge(
+        "voice_actor",
+        lambda u: u.message_types.get("audio", 0),
+        lambda u, v: f"{int(v):,} voice messages",
+        min_value=5
+    )
+    
+    # Link Sharer - most links
+    award_max_badge(
+        "link_sharer",
+        lambda u: u.message_types.get("link", 0),
+        lambda u, v: f"{int(v):,} links shared",
+        min_value=5
+    )
+    
+    # Novelist - longest average message length (only text messages)
+    award_max_badge(
+        "novelist",
+        lambda u: u.avg_message_length,
+        lambda u, v: f"{int(v)} chars/message",
+        min_value=100  # At least 100 chars average
+    )
+    
+    # Speedster - shortest average message length (only text messages, exclude very short)
+    award_min_badge(
+        "speedster",
+        lambda u: u.avg_message_length,
+        lambda u, v: f"{int(v)} chars/message",
+        threshold=1  # Must have at least some text
+    )
+    
+    return badges_by_user
