@@ -29,3 +29,4 @@ WhatsApp chat exports contain:
 - Media references
 
 These should **never** be committed to a public repository.
+

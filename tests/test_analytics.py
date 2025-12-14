@@ -190,3 +190,4 @@ def test_longest_conversation_stats(chat_data_3months):
     assert analytics.longest_conversation["messages"] > 0
     assert analytics.longest_conversation["participants"] > 0
     assert analytics.longest_conversation["participants"] <= analytics.total_members
+

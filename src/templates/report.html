@@ -766,6 +766,14 @@
             text-overflow: ellipsis;
         }
 
+        .user-rank-and-badges {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 0.15rem;
+            flex-wrap: wrap;
+        }
+
         .user-rank {
             font-size: 0.75rem;
             color: var(--text-muted);
@@ -773,7 +781,6 @@
             padding: 0.15rem 0.5rem;
             border-radius: 4px;
             display: inline-block;
-            margin-top: 0.15rem;
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
@@ -825,11 +832,24 @@
         }
 
         /* User Badges */
+        .user-badges-section {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .user-badges-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 500;
+        }
+
         .user-badges {
             display: flex;
             gap: 0.25rem;
             flex-wrap: wrap;
-            margin-top: 0.35rem;
         }
 
         .user-badge {
@@ -839,19 +859,20 @@
             font-size: 1rem;
             width: 1.75rem;
             height: 1.75rem;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+            border: 1px solid rgba(255, 255, 255, 0.12);
             cursor: help;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
 
         .user-badge:hover {
-            transform: scale(1.15) translateY(-2px);
-            background: rgba(255, 255, 255, 0.08);
-            border-color: rgba(255, 255, 255, 0.15);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 255, 255, 0.1);
+            transform: scale(1.2) translateY(-3px);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.08));
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4), 0 0 24px rgba(255, 255, 255, 0.15);
             z-index: 10;
         }
 
@@ -1515,20 +1536,25 @@
                         <div class="user-avatar" style="background: {{ ['linear-gradient(135deg, #3b82f6, #8b5cf6)', 'linear-gradient(135deg, #22c55e, #06b6d4)', 'linear-gradient(135deg, #f59e0b, #f43f5e)', 'linear-gradient(135deg, #8b5cf6, #06b6d4)', 'linear-gradient(135deg, #06b6d4, #3b82f6)', 'linear-gradient(135deg, #f43f5e, #8b5cf6)'][loop.index0 % 6] }}">{{ user.name[0].upper() }}</div>
                         <div class="user-info">
                             <div class="user-name">{{ user.name }}</div>
-                            <div class="user-rank">#{{ loop.index }} contributor</div>
-                            {% if user_badges.get(user.name) %}
-                            <div class="user-badges">
-                                {% for badge in user_badges[user.name] %}
-                                <span class="user-badge">
-                                    {{ badge.emoji }}
-                                    <span class="user-badge-tooltip">
-                                        <div class="user-badge-tooltip-label">{{ badge.label }}</div>
-                                        <div class="user-badge-tooltip-detail">{{ badge.detail }}</div>
-                                    </span>
-                                </span>
-                                {% endfor %}
+                            <div class="user-rank-and-badges">
+                                <div class="user-rank">#{{ loop.index }} contributor</div>
+                                {% if user_badges.get(user.name) %}
+                                <div class="user-badges-section">
+                                    <span class="user-badges-label">Badges:</span>
+                                    <div class="user-badges">
+                                        {% for badge in user_badges[user.name] %}
+                                        <span class="user-badge">
+                                            {{ badge.emoji }}
+                                            <span class="user-badge-tooltip">
+                                                <div class="user-badge-tooltip-label">{{ badge.label }}</div>
+                                                <div class="user-badge-tooltip-detail">{{ badge.detail }}</div>
+                                            </span>
+                                        </span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
                             </div>
-                            {% endif %}
                         </div>
                     </div>
                     <div class="user-stats">

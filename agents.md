@@ -104,3 +104,4 @@ uv sync
 - **Always use `uv run`** - This ensures dependencies are properly managed and isolated
 - `uv` automatically installs missing packages when using `uv run`
 - The project requires Python 3.10 or higher
+

@@ -195,3 +195,4 @@ def test_multiple_options_combined(chat_file_path, tmp_path):
         assert output_dir.exists()
         html_files = list(output_dir.glob("*_report.html"))
         assert len(html_files) == 1
+
