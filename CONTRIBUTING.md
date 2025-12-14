@@ -266,3 +266,4 @@ Feel free to:
 ---
 
 Thank you for contributing to WhatsApp Wrapped! 🎉
+
