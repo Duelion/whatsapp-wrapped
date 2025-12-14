@@ -1384,9 +1384,9 @@
                     <div class="highlight-detail">Peak activity day of week</div>
                 </div>
                 <div class="highlight-card">
-                    <div class="highlight-icon">🌙</div>
+                    <div class="highlight-icon">{{ hour_emoji }}</div>
                     <div class="highlight-label">Peak Hour</div>
-                    <div class="highlight-value">{{ "%02d" | format(analytics.most_active_hour) }}:00</div>
+                    <div class="highlight-value">{{ formatted_hour }}</div>
                     <div class="highlight-detail">Most messages sent at this hour</div>
                 </div>
                 <div class="highlight-card">
@@ -1412,6 +1412,7 @@
             </div>
 
             <div class="chart-container" style="margin-bottom: 1.5rem;">
+                <h3 class="chart-title">Top Contributors</h3>
                 <div class="chart-interactive">
                     {{ charts.top_users | safe }}
                 </div>
@@ -1494,6 +1495,7 @@
 
             <div class="chart-grid">
                 <div class="chart-container">
+                    <h3 class="chart-title">Messages by Hour</h3>
                     <div class="chart-interactive">
                         {{ charts.messages_by_hour | safe }}
                     </div>
@@ -1504,6 +1506,7 @@
                     {% endif %}
                 </div>
                 <div class="chart-container">
+                    <h3 class="chart-title">Weekly Activity</h3>
                     <div class="chart-interactive">
                         {{ charts.messages_by_weekday | safe }}
                     </div>
@@ -1516,6 +1519,7 @@
             </div>
 
             <div class="chart-container" style="margin-top: 1.25rem;">
+                <h3 class="chart-title">Message Timeline</h3>
                 <div class="chart-interactive">
                     {{ charts.timeline | safe }}
                 </div>

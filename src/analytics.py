@@ -386,6 +386,18 @@ def format_hour(hour: int) -> str:
         return f"{hour - 12}:00 PM"
 
 
+def get_hour_emoji(hour: int) -> str:
+    """Get an emoji representing the time of day for a given hour (0-23)."""
+    if 0 <= hour < 6:
+        return "🌙"  # Night / Late night
+    elif 6 <= hour < 12:
+        return "🌅"  # Morning / Sunrise
+    elif 12 <= hour < 18:
+        return "☀️"  # Afternoon / Day
+    else:
+        return "🌆"  # Evening / Sunset
+
+
 def get_activity_emoji(category: str) -> str:
     """Get an ASCII art representation for activity category."""
     if category == "night_owl":

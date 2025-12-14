@@ -171,7 +171,7 @@ def create_messages_by_hour_chart(messages_by_hour: pd.Series) -> go.Figure:
     )
 
     layout = get_modern_layout(
-        title="Messages by Hour",
+        title="",  # No title - will be added in HTML
         xaxis_title="Hour",
         yaxis_title="Messages",
         show_legend=False,
@@ -217,7 +217,7 @@ def create_messages_by_weekday_chart(messages_by_weekday: pd.Series) -> go.Figur
     )
 
     layout = get_modern_layout(
-        title="Weekly Activity",
+        title="",  # No title - will be added in HTML
         xaxis_title="Day",
         yaxis_title="Messages",
         show_legend=False,
@@ -230,7 +230,7 @@ def create_messages_by_weekday_chart(messages_by_weekday: pd.Series) -> go.Figur
 
 
 def create_timeline_chart(messages_by_date: pd.Series) -> go.Figure:
-    """Create a line/area chart showing messages over time."""
+    """Create a line/area chart showing messages over time with toggleable traces."""
     dates = pd.to_datetime(messages_by_date.index)
     values = messages_by_date.values
 
@@ -263,14 +263,26 @@ def create_timeline_chart(messages_by_date: pd.Series) -> go.Figure:
         )
     )
 
-    fig.update_layout(
-        **get_modern_layout(
-            title="Message Timeline",
-            xaxis_title="Date",
-            yaxis_title="Messages",
-            height=350,
-        )
+    layout = get_modern_layout(
+        title="",  # No title - will be added in HTML
+        xaxis_title="Date",
+        yaxis_title="Messages",
+        height=350,
+        show_legend=True,
     )
+    
+    # Make legend interactive for toggling traces
+    layout["legend"] = {
+        "bgcolor": "rgba(0,0,0,0)",
+        "font": {"color": COLORS["text_muted"], "size": 11},
+        "orientation": "h",
+        "yanchor": "bottom",
+        "y": 1.02,
+        "xanchor": "left",
+        "x": 0,
+    }
+    
+    fig.update_layout(**layout)
 
     return fig
 
@@ -313,7 +325,7 @@ def create_top_users_chart(top_messagers: list[tuple[str, int]], max_users: int 
     )
 
     layout = get_modern_layout(
-        title="Top Contributors",
+        title="",  # No title - will be added in HTML
         xaxis_title="Messages",
         yaxis_title="",
         height=50 + 40 * len(users),

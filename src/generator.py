@@ -87,6 +87,11 @@ def generate_html_report(
     )
     template = env.get_template("report.html")
 
+    # Format peak hour data
+    from .analytics import format_hour, get_hour_emoji
+    formatted_hour = format_hour(analytics.most_active_hour)
+    hour_emoji = get_hour_emoji(analytics.most_active_hour)
+
     # Render template
     if not quiet:
         print("[*] Rendering HTML report...")
@@ -98,6 +103,8 @@ def generate_html_report(
         user_hourly_sparklines=user_hourly_sparklines,
         chart_images=None,  # No static images for HTML
         generation_date=datetime.now().strftime("%Y-%m-%d %H:%M"),
+        formatted_hour=formatted_hour,
+        hour_emoji=hour_emoji,
     )
 
     # Determine output path
@@ -298,6 +305,11 @@ def generate_full_report(
     html_path = output_dir / f"{stem}_report.html"
     pdf_path = output_dir / f"{stem}_report.pdf" if generate_pdf else None
 
+    # Format peak hour data
+    from .analytics import format_hour, get_hour_emoji
+    formatted_hour = format_hour(analytics.most_active_hour)
+    hour_emoji = get_hour_emoji(analytics.most_active_hour)
+
     # Render HTML template
     if not quiet:
         print("[*] Rendering HTML report...")
@@ -310,6 +322,8 @@ def generate_full_report(
         chart_images=chart_images,
         generation_date=datetime.now().strftime("%Y-%m-%d %H:%M"),
         fixed_layout=fixed_layout,
+        formatted_hour=formatted_hour,
+        hour_emoji=hour_emoji,
     )
 
     # Write HTML file
