@@ -27,6 +27,9 @@ uv run python -m src.generator path/to/chat.zip --quiet
 
 ### Run Tests
 
+**IMPORTANT**: Test data files are NOT committed to the repository for privacy reasons.
+You need to provide your own chat export file in `tests/data/` directory to run tests.
+
 Tests automatically use the chat data file located in `tests/data/` directory. 
 The test will find any `.zip` or `.txt` file in that directory (there should only be one).
 
@@ -53,20 +56,23 @@ uv run pytest --cov=src --cov-report=html --cov-report=term
 
 To generate a test report using the test data for a specific year:
 
+**Note**: Test data files are gitignored for privacy. Place your own chat export in `tests/data/` for testing.
+
 ```bash
-# Generate report for year 2025 using test data (file name may vary)
-uv run python -m src.generator "tests/data/WhatsApp Chat - Chicken Center.zip" --year 2025
+# Generate report for year 2025 using test data (use actual filename)
+uv run python -m src.generator "tests/data/your-chat-file.zip" --year 2025
 
 # Or if using a .txt file
 uv run python -m src.generator "tests/data/your-chat-file.txt" --year 2025
 
 # Generate with PDF
-uv run python -m src.generator "tests/data/WhatsApp Chat - Chicken Center.zip" --year 2025 --pdf
+uv run python -m src.generator "tests/data/your-chat-file.zip" --year 2025 --pdf
 ```
 
 Generated test reports will be saved in the project root and are automatically gitignored.
 
 **Note**: Keep only one chat file (`.zip` or `.txt`) in `tests/data/` directory for testing.
+**NEVER commit chat files** - they contain private conversations!
 
 ### Test Results Location
 
