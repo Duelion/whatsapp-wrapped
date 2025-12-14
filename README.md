@@ -162,28 +162,6 @@ whatsapp-wrapped/
 └── README.md              # This file
 ```
 
-## 🤝 Contributing
-
-Contributions are welcome! Here's how to get started:
-
-### Development Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/Duelion/whatsapp-wrapped.git
-cd whatsapp-wrapped
-
-# Install with development dependencies
-uv sync --dev
-
-# Run tests
-uv run pytest
-
-# Lint and format
-uv run ruff check --fix src/
-uv run ruff format src/
-```
-
 ## 🔒 Privacy & Security
 
 **Your data stays on your device.** This tool:
@@ -195,50 +173,11 @@ uv run ruff format src/
 
 **Important**: Never commit actual chat exports to version control or share them publicly!
 
-## 📝 Configuration
-
-You can customize the analysis using `config/config.yaml`:
-
-```yaml
-analysis:
-  year: 2024
-  top_n_users: 10
-  top_n_words: 50
-  top_n_emojis: 20
-
-theme:
-  color_scheme: "spotify"
-  primary_color: "#1DB954"
-
-privacy:
-  anonymize_names: false  # Replace names with "User 1", "User 2", etc.
-```
-
-## 🐛 Troubleshooting
-
-### PDF Generation Issues
-
-PDF generation uses Playwright with Chromium to render the HTML exactly as it appears in a browser.
-
-If PDF generation fails:
-
-```bash
-# Install Playwright
-uv add playwright
-
-# Install Chromium browser (required for PDF generation)
-playwright install chromium
-```
-
-The first time you run `playwright install chromium`, it will download the Chromium browser (~150MB). This is a one-time setup.
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🙏 Acknowledgments
-
-Inspired by Spotify Wrapped and the desire to celebrate our digital conversations!
 
 ## 📞 Support
 
