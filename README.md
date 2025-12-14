@@ -8,6 +8,10 @@ Create beautiful Spotify Wrapped-style visualizations for your WhatsApp group ch
 </p>
 
 <p align="center">
+  <a href="https://colab.research.google.com/github/fer-lion/whatsapp-wrapped/blob/main/whatsapp_wrapped.ipynb" target="_blank">
+    <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" height="28">
+  </a>
+  &nbsp;&nbsp;
   <a href="https://buymeacoffee.com/duelion" target="_blank" rel="noopener noreferrer">
     <img src="https://cdn.buymeacoffee.com/buttons/v2/default-red.png" alt="Buy Me A Coffee" width="150">
   </a>
@@ -25,7 +29,21 @@ Create beautiful Spotify Wrapped-style visualizations for your WhatsApp group ch
 
 ## 🚀 Quick Start
 
-### Installation
+### Option 1: Google Colab (No Installation Required)
+
+The easiest way to use WhatsApp Wrapped - no installation needed!
+
+<a href="https://colab.research.google.com/github/fer-lion/whatsapp-wrapped/blob/main/whatsapp_wrapped.ipynb" target="_blank">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" height="32">
+</a>
+
+1. Click the button above to open the notebook in Google Colab
+2. Run the setup cell to install dependencies
+3. Configure your options (year filter, minimum messages)
+4. Upload your WhatsApp chat export
+5. Download your beautiful report!
+
+### Option 2: Local Installation
 
 1. **Install uv** (fast Python package manager):
 

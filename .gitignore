@@ -57,6 +57,8 @@ ENV/
 .ipynb_checkpoints
 *.ipynb_checkpoints/
 *.ipynb
+# Exception: Allow the Google Colab notebook
+!whatsapp_wrapped.ipynb
 
 # IDE & Editors
 .vscode/
