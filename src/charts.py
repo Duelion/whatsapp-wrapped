@@ -339,12 +339,16 @@ def create_top_users_chart(top_messagers: list[tuple[str, int]], max_users: int 
 
 
 def create_message_types_chart(message_type_counts: pd.Series) -> go.Figure:
-    """Create a pie chart of message type distribution."""
+    """Create a modern donut chart of message type distribution."""
     # Sort by count descending
     data = message_type_counts.sort_values(ascending=False)
     
     labels = data.index.tolist()
     values = data.values.tolist()
+    total = sum(values)
+    
+    # Calculate percentages for conditional display
+    percentages = [(v / total * 100) for v in values]
     
     # Create a vibrant color palette for different message types
     n = len(labels)
@@ -360,6 +364,12 @@ def create_message_types_chart(message_type_counts: pd.Series) -> go.Figure:
     while len(colors) < n:
         colors.extend(ACCENT_COLORS)
     colors = colors[:n]
+    
+    # Pull effect for largest slice (emphasis)
+    pull = [0.03 if i == 0 else 0 for i in range(n)]
+    
+    # Custom text: only show percentage for slices > 5%
+    text_labels = [f"{p:.1f}%" if p >= 5 else "" for p in percentages]
 
     fig = go.Figure()
 
@@ -367,13 +377,29 @@ def create_message_types_chart(message_type_counts: pd.Series) -> go.Figure:
         go.Pie(
             labels=labels,
             values=values,
+            hole=0.5,  # Donut chart
+            pull=pull,
             marker_colors=colors,
             marker_line_color=COLORS["background"],
             marker_line_width=2,
-            textposition="auto",
-            textfont={"color": COLORS["text"], "size": 12},
+            textposition="inside",
+            textinfo="text",
+            text=text_labels,
+            insidetextorientation="radial",
+            textfont={"color": COLORS["text"], "size": 12, "family": "Geist, sans-serif"},
             hovertemplate="<b>%{label}</b><br>%{value:,} messages<br>%{percent}<extra></extra>",
         )
+    )
+    
+    # Add center annotation in the donut hole
+    fig.add_annotation(
+        text="Message<br>Types",
+        x=0.5, 
+        y=0.5,
+        font={"size": 16, "color": COLORS["text_secondary"], "family": "Geist, sans-serif"},
+        showarrow=False,
+        xref="paper",
+        yref="paper",
     )
 
     fig.update_layout(
@@ -398,7 +424,7 @@ def create_message_types_chart(message_type_counts: pd.Series) -> go.Figure:
         showlegend=True,
         legend={
             "bgcolor": "rgba(0,0,0,0)",
-            "font": {"color": COLORS["text_muted"], "size": 11},
+            "font": {"color": COLORS["text_muted"], "size": 10},
             "orientation": "v",
             "yanchor": "middle",
             "y": 0.5,
