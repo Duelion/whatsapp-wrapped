@@ -18,14 +18,18 @@ if sys.platform == "win32":
 @pytest.fixture(scope="session")
 def chat_file_path():
     """Return the path to the WhatsApp chat export file."""
-    # Look for any .zip file in the project root
-    project_root = Path(__file__).parent.parent
-    chat_files = list(project_root.glob("*.zip"))
+    # Use the test data file in tests/data directory
+    test_data_dir = Path(__file__).parent / "data"
+    
+    # Look for .zip files first, then .txt files
+    chat_files = list(test_data_dir.glob("*.zip"))
+    if not chat_files:
+        chat_files = list(test_data_dir.glob("*.txt"))
     
     if not chat_files:
-        pytest.skip("No WhatsApp chat export file (.zip) found in project root for testing")
+        pytest.skip("No WhatsApp chat export file (.zip or .txt) found in tests/data/ for testing")
     
-    # Use the first .zip file found
+    # Use the first file found (there should only be one)
     return chat_files[0]
 
 
