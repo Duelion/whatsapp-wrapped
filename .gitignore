@@ -1,7 +1,7 @@
 # WhatsApp Chat Data (IMPORTANT - Don't commit personal chats!)
 *.zip
-# Exception: Allow test data files
-!tests/**/*.zip
+*.txt
+# Exception: Allow specific files if needed (currently none)
 data/raw/*.txt
 data/raw/*.zip
 data/processed/*.csv
