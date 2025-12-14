@@ -1530,7 +1530,7 @@
             </div>
 
             <div class="user-grid">
-                {% for user in analytics.user_stats[:12] %}
+                {% for user in analytics.user_stats %}
                 <div class="user-card">
                     <div class="user-header">
                         <div class="user-avatar" style="background: {{ ['linear-gradient(135deg, #3b82f6, #8b5cf6)', 'linear-gradient(135deg, #22c55e, #06b6d4)', 'linear-gradient(135deg, #f59e0b, #f43f5e)', 'linear-gradient(135deg, #8b5cf6, #06b6d4)', 'linear-gradient(135deg, #06b6d4, #3b82f6)', 'linear-gradient(135deg, #f43f5e, #8b5cf6)'][loop.index0 % 6] }}">{{ user.name[0].upper() }}</div>

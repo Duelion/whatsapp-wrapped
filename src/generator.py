@@ -72,7 +72,7 @@ def generate_html_report(
     from .charts import create_user_sparkline, create_user_hourly_sparkline, chart_to_html
     user_sparklines = {}
     user_hourly_sparklines = {}
-    for user_stat in analytics.user_stats[:12]:  # Top 12 users
+    for user_stat in analytics.user_stats:
         # Yearly activity sparkline - Plotly already loaded by top_users chart
         sparkline_fig = create_user_sparkline(user_stat.daily_activity, user_stat.name)
         user_sparklines[user_stat.name] = chart_to_html(sparkline_fig, include_plotlyjs=False)
@@ -312,7 +312,7 @@ def generate_full_report(
     from .charts import create_user_sparkline, create_user_hourly_sparkline, chart_to_html
     user_sparklines = {}
     user_hourly_sparklines = {}
-    for user_stat in analytics.user_stats[:12]:  # Top 12 users
+    for user_stat in analytics.user_stats:
         # Yearly activity sparkline - Plotly already loaded by top_users chart
         sparkline_fig = create_user_sparkline(user_stat.daily_activity, user_stat.name)
         user_sparklines[user_stat.name] = chart_to_html(sparkline_fig, include_plotlyjs=False)
