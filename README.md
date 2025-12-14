@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=".github/assets/ws_logo.png" alt="WhatsApp Wrapped Logo" width="500">
+  <img src=".github/assets/ws_logo.png" alt="WhatsApp Wrapped Logo" width="700">
 </p>
 
 <p align="center">
@@ -11,16 +11,6 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python 3.10+">
-  <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
-  <img src="https://img.shields.io/github/stars/Duelion/whatsapp-wrapped?style=social" alt="GitHub Stars">
-</p>
-
-<p align="center">
-  <a href="https://colab.research.google.com/github/Duelion/whatsapp-wrapped/blob/main/whatsapp_wrapped.ipynb" target="_blank">
-    <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" height="28">
-  </a>
-  &nbsp;&nbsp;
   <a href="https://buymeacoffee.com/duelion" target="_blank" rel="noopener noreferrer">
     <img src="https://cdn.buymeacoffee.com/buttons/v2/default-red.png" alt="Buy Me A Coffee" width="150">
   </a>
