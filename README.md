@@ -117,7 +117,7 @@ The report includes:
 - **pandas**: Data manipulation and analysis
 - **Plotly**: Interactive visualizations
 - **Jinja2**: HTML template rendering
-- **WeasyPrint**: PDF generation (optional)
+- **Playwright**: PDF generation with Chromium (optional)
 - **Ruff**: Lightning-fast linting and formatting
 
 ## 📁 Project Structure
@@ -195,24 +195,19 @@ privacy:
 
 ### PDF Generation Issues
 
+PDF generation uses Playwright with Chromium to render the HTML exactly as it appears in a browser.
+
 If PDF generation fails:
 
 ```bash
-# Install WeasyPrint
-uv add weasyprint
+# Install Playwright
+uv add playwright
 
-# On Windows, you may need GTK libraries
-# See: https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation
+# Install Chromium browser (required for PDF generation)
+playwright install chromium
 ```
 
-### Chart Image Issues
-
-If static chart images fail:
-
-```bash
-# Install kaleido
-uv add kaleido
-```
+The first time you run `playwright install chromium`, it will download the Chromium browser (~150MB). This is a one-time setup.
 
 ## 📄 License
 

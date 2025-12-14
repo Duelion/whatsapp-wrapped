@@ -130,14 +130,14 @@ def test_fixed_layout_flag(chat_file_path, tmp_path, monkeypatch):
 
 
 def test_pdf_flag_skip_if_unavailable(chat_file_path, tmp_path, monkeypatch):
-    """Test --pdf flag attempts PDF generation (skips if WeasyPrint unavailable)."""
+    """Test --pdf flag attempts PDF generation (skips if Playwright unavailable)."""
     monkeypatch.chdir(tmp_path)
     
     try:
-        import weasyprint
-        weasyprint_available = True
+        from playwright.async_api import async_playwright
+        playwright_available = True
     except ImportError:
-        weasyprint_available = False
+        playwright_available = False
     
     with patch("sys.argv", ["whatsapp-wrapped", str(chat_file_path), "--pdf", "--quiet"]):
         main()
@@ -146,10 +146,11 @@ def test_pdf_flag_skip_if_unavailable(chat_file_path, tmp_path, monkeypatch):
     html_files = list(tmp_path.glob("*_report.html"))
     assert len(html_files) == 1
     
-    # PDF only created if WeasyPrint available
+    # PDF only created if Playwright is available and Chromium is installed
     pdf_files = list(tmp_path.glob("*_report.pdf"))
-    if weasyprint_available:
-        assert len(pdf_files) >= 0  # May or may not succeed due to system dependencies
+    if playwright_available:
+        # May or may not succeed - depends on chromium being installed
+        assert len(pdf_files) >= 0
     # If not available, PDF generation is skipped gracefully
 
 

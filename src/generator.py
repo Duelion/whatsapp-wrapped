@@ -101,7 +101,6 @@ def generate_html_report(
         charts=charts_html,
         user_sparklines=user_sparklines,
         user_hourly_sparklines=user_hourly_sparklines,
-        chart_images=None,  # No static images for HTML
         generation_date=datetime.now().strftime("%Y-%m-%d %H:%M"),
         formatted_hour=formatted_hour,
         hour_emoji=hour_emoji,
@@ -130,7 +129,10 @@ def generate_pdf_report(
     quiet: bool = False,
 ) -> Path:
     """
-    Generate a PDF report from an existing HTML report.
+    Generate a PDF report from an existing HTML report using Playwright.
+
+    Uses a real Chromium browser to render the HTML, ensuring all CSS
+    and JavaScript (including Plotly charts) render correctly.
 
     Args:
         html_path: Path to the HTML report
@@ -140,66 +142,93 @@ def generate_pdf_report(
     Returns:
         Path to the generated PDF file
     """
-    try:
-        from weasyprint import CSS, HTML
-    except ImportError:
-        print("[!] WeasyPrint not installed. Install with: uv add weasyprint")
-        print("[!] Note: WeasyPrint requires GTK libraries on Windows.")
-        raise
+    import asyncio
 
-    html_path = Path(html_path)
+    async def _generate_pdf() -> Path:
+        try:
+            from playwright.async_api import async_playwright
+        except ImportError:
+            print("[!] Playwright not installed. Install with: uv add playwright")
+            print("[!] Then run: playwright install chromium")
+            raise
 
-    if not html_path.exists():
-        raise FileNotFoundError(f"HTML file not found: {html_path}")
+        html_path_resolved = Path(html_path).resolve()
 
-    if not quiet:
-        print("[*] Converting HTML to PDF...")
+        if not html_path_resolved.exists():
+            raise FileNotFoundError(f"HTML file not found: {html_path_resolved}")
 
-    # Determine output path
-    if output_path is None:
-        output_path = html_path.with_suffix(".pdf")
-    else:
-        output_path = Path(output_path)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        # Determine output path
+        nonlocal output_path
+        if output_path is None:
+            output_path = html_path_resolved.with_suffix(".pdf")
+        else:
+            output_path = Path(output_path).resolve()
+            output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Additional CSS for PDF to ensure proper rendering
-    pdf_css = CSS(
-        string="""
-        @page {
-            size: A4;
-            margin: 1.5cm;
-            background-color: #0d1117;
-        }
+        if not quiet:
+            print("[*] Converting HTML to PDF with Playwright...")
 
-        body {
-            font-size: 10pt;
-        }
+        async with async_playwright() as p:
+            # Launch headless Chromium
+            browser = await p.chromium.launch()
 
-        /* Force static images for PDF */
-        .chart-interactive {
-            display: none !important;
-        }
+            # Use a wider viewport for better layout
+            # device_scale_factor=2 for high-DPI/retina quality rendering
+            page = await browser.new_page(
+                viewport={"width": 1400, "height": 800},
+                device_scale_factor=2,
+            )
 
-        .chart-static {
-            display: block !important;
-        }
+            # Navigate to the HTML file
+            file_url = html_path_resolved.as_uri()
+            await page.goto(file_url)
 
-        /* Ensure backgrounds print */
-        * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-        }
-    """
-    )
+            # Wait for the page to fully load (including Plotly charts)
+            await page.wait_for_load_state("networkidle")
 
-    # Generate PDF
-    html_doc = HTML(filename=str(html_path))
-    html_doc.write_pdf(str(output_path), stylesheets=[pdf_css])
+            # Inject CSS to add padding inside the dark background
+            await page.add_style_tag(
+                content="""
+                body {
+                    padding: 40px 60px !important;
+                }
+                .container {
+                    max-width: 1200px !important;
+                    margin: 0 auto !important;
+                }
+            """
+            )
 
-    if not quiet:
-        print(f"[+] PDF report saved: {output_path}")
+            # Give Plotly a moment to finish rendering animations
+            await page.wait_for_timeout(1000)
 
-    return output_path
+            # Measure the full page height for single-page PDF
+            page_height = await page.evaluate("document.documentElement.scrollHeight")
+
+            # Generate PDF as a single long page (no margins - padding is in the HTML)
+            await page.pdf(
+                path=str(output_path),
+                width="1400px",
+                height=f"{page_height}px",
+                print_background=True,  # Keep dark background
+                scale=1,
+                margin={
+                    "top": "0",
+                    "bottom": "0",
+                    "left": "0",
+                    "right": "0",
+                },
+            )
+
+            await browser.close()
+
+        if not quiet:
+            print(f"[+] PDF report saved: {output_path}")
+
+        return output_path
+
+    # Run the async function
+    return asyncio.run(_generate_pdf())
 
 
 def generate_full_report(
@@ -212,7 +241,7 @@ def generate_full_report(
     quiet: bool = False,
 ) -> tuple[Path, Path | None]:
     """
-    Generate both HTML and PDF reports with static chart images for PDF.
+    Generate HTML and optionally PDF reports from a WhatsApp chat export.
 
     Args:
         chat_file: Path to the WhatsApp export (.zip or .txt)
@@ -267,24 +296,6 @@ def generate_full_report(
         hourly_sparkline_fig = create_user_hourly_sparkline(user_stat.hourly_activity, user_stat.name)
         user_hourly_sparklines[user_stat.name] = chart_to_html(hourly_sparkline_fig, include_plotlyjs=False)
 
-    # Generate static images for PDF if requested
-    chart_images = None
-    if generate_pdf:
-        if not quiet:
-            print("[*] Generating static chart images for PDF...")
-        try:
-            chart_images = chart_collection.to_png_dict()
-            # Check if any images were generated
-            if not any(chart_images.values()):
-                if not quiet:
-                    print("[!] Warning: Could not generate chart images. PDF charts may be missing.")
-                    print("[!] Install kaleido: uv add kaleido")
-                chart_images = None
-        except Exception as e:
-            if not quiet:
-                print(f"[!] Warning: Could not generate chart images: {e}")
-            chart_images = None
-
     # Set up Jinja2 environment
     template_dir = get_template_dir()
     env = Environment(
@@ -319,7 +330,6 @@ def generate_full_report(
         charts=charts_html,
         user_sparklines=user_sparklines,
         user_hourly_sparklines=user_hourly_sparklines,
-        chart_images=chart_images,
         generation_date=datetime.now().strftime("%Y-%m-%d %H:%M"),
         fixed_layout=fixed_layout,
         formatted_hour=formatted_hour,
@@ -337,7 +347,8 @@ def generate_full_report(
             generate_pdf_report(html_path, pdf_path, quiet=quiet)
         except ImportError:
             if not quiet:
-                print("[!] Skipping PDF generation (WeasyPrint not available)")
+                print("[!] Skipping PDF generation (Playwright not available)")
+                print("[!] Install with: uv add playwright && playwright install chromium")
             pdf_path = None
         except Exception as e:
             if not quiet:

@@ -1091,18 +1091,25 @@
         }
 
         /* ═══════════════════════════════════════════════════════════════
-           PRINT STYLES
+           PRINT STYLES (Optimized for Playwright PDF generation)
            ═══════════════════════════════════════════════════════════════ */
         
         @media print {
+            /* Ensure backgrounds and colors print correctly */
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                animation: none !important;
+                transition: none !important;
+            }
+
+            /* Hide decorative overlay */
             body::before {
                 display: none;
             }
 
             body {
                 background-color: #09090b !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
             }
 
             .container {
@@ -1110,14 +1117,21 @@
                 padding: 1rem;
             }
 
+            /* Header adjustments */
             .header {
                 padding: 2rem 1rem;
                 page-break-after: avoid;
             }
 
+            .header-aurora,
+            .header-particles {
+                display: none;
+            }
+
+            /* Page break control */
             .section {
                 page-break-inside: avoid;
-                animation: none;
+                margin: 2rem 0;
             }
 
             .chart-container {
@@ -1130,33 +1144,30 @@
 
             .user-card {
                 page-break-inside: avoid;
+                break-inside: avoid;
             }
 
             .stats-grid {
                 page-break-inside: avoid;
             }
 
-            .chart-interactive {
+            .highlights-grid {
+                page-break-inside: avoid;
+            }
+
+            .highlight-card {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+
+            /* Hide hover tooltips in print */
+            .user-emoji-tooltip {
                 display: none !important;
             }
 
-            .chart-static {
-                display: block !important;
-            }
-
-            .chart-static img {
-                max-width: 100%;
-                height: auto;
-            }
-
-            * {
-                animation: none !important;
-            }
-        }
-
-        @media screen {
-            .chart-static {
-                display: none !important;
+            /* Ensure charts render at full size */
+            .chart-container {
+                overflow: visible;
             }
         }
 
@@ -1413,14 +1424,7 @@
 
             <div class="chart-container" style="margin-bottom: 1.5rem;">
                 <h3 class="chart-title">Top Contributors</h3>
-                <div class="chart-interactive">
-                    {{ charts.top_users | safe }}
-                </div>
-                {% if chart_images %}
-                <div class="chart-static">
-                    <img src="{{ chart_images.top_users }}" alt="Top Users">
-                </div>
-                {% endif %}
+                {{ charts.top_users | safe }}
             </div>
 
             <div class="user-grid">
@@ -1455,16 +1459,12 @@
                     <!-- Sparklines: Daily Pattern & Yearly Activity -->
                     <div class="user-sparkline">
                         <div class="user-sparkline-title">Daily Pattern</div>
-                        <div class="chart-interactive">
-                            {{ user_hourly_sparklines[user.name] | safe }}
-                        </div>
+                        {{ user_hourly_sparklines[user.name] | safe }}
                     </div>
                     
                     <div class="user-sparkline">
                         <div class="user-sparkline-title">Yearly Activity</div>
-                        <div class="chart-interactive">
-                            {{ user_sparklines[user.name] | safe }}
-                        </div>
+                        {{ user_sparklines[user.name] | safe }}
                     </div>
                     
                     <div class="user-footer">
@@ -1496,38 +1496,17 @@
             <div class="chart-grid">
                 <div class="chart-container">
                     <h3 class="chart-title">Messages by Hour</h3>
-                    <div class="chart-interactive">
-                        {{ charts.messages_by_hour | safe }}
-                    </div>
-                    {% if chart_images %}
-                    <div class="chart-static">
-                        <img src="{{ chart_images.messages_by_hour }}" alt="Messages by Hour">
-                    </div>
-                    {% endif %}
+                    {{ charts.messages_by_hour | safe }}
                 </div>
                 <div class="chart-container">
                     <h3 class="chart-title">Weekly Activity</h3>
-                    <div class="chart-interactive">
-                        {{ charts.messages_by_weekday | safe }}
-                    </div>
-                    {% if chart_images %}
-                    <div class="chart-static">
-                        <img src="{{ chart_images.messages_by_weekday }}" alt="Messages by Weekday">
-                    </div>
-                    {% endif %}
+                    {{ charts.messages_by_weekday | safe }}
                 </div>
             </div>
 
             <div class="chart-container" style="margin-top: 1.25rem;">
                 <h3 class="chart-title">Message Timeline</h3>
-                <div class="chart-interactive">
-                    {{ charts.timeline | safe }}
-                </div>
-                {% if chart_images %}
-                <div class="chart-static">
-                    <img src="{{ chart_images.timeline }}" alt="Message Timeline">
-                </div>
-                {% endif %}
+                {{ charts.timeline | safe }}
             </div>
         </section>
 
@@ -1539,14 +1518,7 @@
             </div>
 
             <div class="chart-container">
-                <div class="chart-interactive">
-                    {{ charts.calendar_heatmap | safe }}
-                </div>
-                {% if chart_images %}
-                <div class="chart-static">
-                    <img src="{{ chart_images.calendar_heatmap }}" alt="Calendar Heatmap">
-                </div>
-                {% endif %}
+                {{ charts.calendar_heatmap | safe }}
             </div>
         </section>
 
@@ -1559,25 +1531,11 @@
 
             <div class="chart-grid">
                 <div class="chart-container">
-                    <div class="chart-interactive">
-                        {{ charts.message_types | safe }}
-                    </div>
-                    {% if chart_images %}
-                    <div class="chart-static">
-                        <img src="{{ chart_images.message_types }}" alt="Message Types">
-                    </div>
-                    {% endif %}
+                    {{ charts.message_types | safe }}
                 </div>
                 {% if charts.emojis %}
                 <div class="chart-container">
-                    <div class="chart-interactive">
-                        {{ charts.emojis | safe }}
-                    </div>
-                    {% if chart_images %}
-                    <div class="chart-static">
-                        <img src="{{ chart_images.emojis }}" alt="Top Emojis">
-                    </div>
-                    {% endif %}
+                    {{ charts.emojis | safe }}
                 </div>
                 {% endif %}
             </div>
