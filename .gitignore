@@ -10,6 +10,8 @@ data/processed/*.pkl
 .git_old/
 
 # Generated Output Files (reports)
+/*.html
+/*.pdf
 output/**/*.html
 output/**/*.pdf
 output/**/*.png
