@@ -105,3 +105,4 @@ uv sync
 - `uv` automatically installs missing packages when using `uv run`
 - The project requires Python 3.10 or higher
 
+
