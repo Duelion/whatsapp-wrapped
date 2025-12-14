@@ -1,8 +1,6 @@
 <p align="center">
-  <img src=".github/assets/ws_logo.png" alt="WhatsApp Wrapped Logo" width="200">
+  <img src=".github/assets/ws_logo.png" alt="WhatsApp Wrapped Logo" width="500">
 </p>
-
-<h1 align="center">WhatsApp Wrapped</h1>
 
 <p align="center">
   <strong>Create beautiful Spotify Wrapped-style visualizations for your WhatsApp group chats!</strong>
