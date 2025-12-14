@@ -26,6 +26,7 @@ def generate_html_report(
     output_path: str | Path | None = None,
     year_filter: int | None = None,
     min_messages: int = 2,
+    report_name: str | None = None,
     quiet: bool = False,
 ) -> Path:
     """
@@ -36,6 +37,7 @@ def generate_html_report(
         output_path: Path for the output HTML file (optional)
         year_filter: Filter messages to a specific year (optional)
         min_messages: Minimum messages per user to include
+        report_name: Custom name for the report file (optional, defaults to chat filename)
         quiet: Suppress progress messages
 
     Returns:
@@ -109,7 +111,10 @@ def generate_html_report(
     # Determine output path
     if output_path is None:
         # Default to current working directory
-        stem = chat_file.stem.replace(" ", "_")
+        if report_name:
+            stem = report_name.replace(" ", "_")
+        else:
+            stem = chat_file.stem.replace(" ", "_")
         output_path = Path.cwd() / f"{stem}_report.html"
     else:
         output_path = Path(output_path)
@@ -236,6 +241,7 @@ def generate_full_report(
     output_dir: str | Path | None = None,
     year_filter: int | None = None,
     min_messages: int = 2,
+    report_name: str | None = None,
     generate_pdf: bool = True,
     fixed_layout: bool = False,
     quiet: bool = False,
@@ -248,7 +254,9 @@ def generate_full_report(
         output_dir: Directory for output files (optional)
         year_filter: Filter messages to a specific year (optional)
         min_messages: Minimum messages per user to include
+        report_name: Custom name for the report file (optional, defaults to chat filename)
         generate_pdf: Whether to also generate PDF
+        fixed_layout: Force desktop layout on all devices
         quiet: Suppress progress messages
 
     Returns:
@@ -312,7 +320,10 @@ def generate_full_report(
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-    stem = chat_file.stem.replace(" ", "_")
+    if report_name:
+        stem = report_name.replace(" ", "_")
+    else:
+        stem = chat_file.stem.replace(" ", "_")
     html_path = output_dir / f"{stem}_report.html"
     pdf_path = output_dir / f"{stem}_report.pdf" if generate_pdf else None
 
@@ -370,6 +381,7 @@ Examples:
   whatsapp-wrapped chat.zip
   whatsapp-wrapped chat.txt --output reports/
   whatsapp-wrapped chat.zip --pdf --year 2024
+  whatsapp-wrapped chat.zip --name "My Group 2024" --year 2024
   whatsapp-wrapped chat.zip --quiet
         """,
     )
@@ -404,6 +416,12 @@ Examples:
         type=int,
         help="Minimum messages per user to include (default: 2)",
         default=2,
+    )
+
+    parser.add_argument(
+        "--name",
+        help="Custom name for the report file (default: chat filename)",
+        default=None,
     )
 
     parser.add_argument(
@@ -447,6 +465,7 @@ Examples:
             output_dir=args.output,
             year_filter=args.year,
             min_messages=args.min_messages,
+            report_name=args.name,
             generate_pdf=args.pdf,
             fixed_layout=args.fixed_layout,
             quiet=args.quiet,

@@ -129,6 +129,20 @@ def test_fixed_layout_flag(chat_file_path, tmp_path, monkeypatch):
     assert "viewport" in html_content.lower()
 
 
+def test_custom_report_name(chat_file_path, tmp_path, monkeypatch):
+    """Test --name option for custom report filename."""
+    monkeypatch.chdir(tmp_path)
+    
+    custom_name = "My_Custom_Report"
+    with patch("sys.argv", ["whatsapp-wrapped", str(chat_file_path), "--name", custom_name, "--quiet"]):
+        main()
+    
+    # Verify HTML was created with custom name
+    html_files = list(tmp_path.glob("*_report.html"))
+    assert len(html_files) == 1
+    assert custom_name in html_files[0].name
+
+
 def test_pdf_flag_skip_if_unavailable(chat_file_path, tmp_path, monkeypatch):
     """Test --pdf flag attempts PDF generation (skips if Playwright unavailable)."""
     monkeypatch.chdir(tmp_path)

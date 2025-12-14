@@ -88,6 +88,9 @@ uv run whatsapp-wrapped chat.zip --output reports/
 # Filter to specific year
 uv run whatsapp-wrapped chat.zip --year 2024
 
+# Custom report name
+uv run whatsapp-wrapped chat.zip --name "My Group 2024"
+
 # Quiet mode (no progress messages)
 uv run whatsapp-wrapped chat.zip --quiet
 
@@ -108,6 +111,7 @@ Options:
   --pdf                  Also generate PDF report
   --year YEAR            Filter messages to a specific year
   --min-messages N       Minimum messages per user to include (default: 2)
+  --name NAME            Custom name for the report file (default: chat filename)
   --fixed-layout         Force desktop layout on all devices
   -q, --quiet            Suppress progress messages
   --version              Show version number and exit
