@@ -240,6 +240,16 @@ def generate_pdf_report(
         return output_path
 
     # Run the async function
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop is not None:
+        # Running inside an existing event loop (e.g., Jupyter)
+        import nest_asyncio
+        nest_asyncio.apply()
+
     return asyncio.run(_generate_pdf())
 
 
