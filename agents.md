@@ -18,6 +18,12 @@ uv run python -m src.generator path/to/chat.zip --year 2025
 # Generate PDF as well
 uv run python -m src.generator path/to/chat.zip --year 2025 --pdf
 
+# Generate static HTML (no JavaScript, pre-rendered charts)
+uv run python -m src.generator path/to/chat.zip --year 2025 --static
+
+# Generate all formats (HTML + PDF + Static)
+uv run python -m src.generator path/to/chat.zip --year 2025 --pdf --static
+
 # Specify output directory
 uv run python -m src.generator path/to/chat.zip --output reports/
 
@@ -75,6 +81,12 @@ uv run python -m src.generator "tests/data/your-chat-file.txt" --year 2025
 
 # Generate with PDF
 uv run python -m src.generator "tests/data/your-chat-file.zip" --year 2025 --pdf
+
+# Generate with static HTML (pre-rendered charts, no JavaScript)
+uv run python -m src.generator "tests/data/your-chat-file.zip" --year 2025 --static
+
+# Generate all formats
+uv run python -m src.generator "tests/data/your-chat-file.zip" --year 2025 --pdf --static
 ```
 
 Generated test reports will be saved in the project root and are automatically gitignored.
@@ -104,6 +116,9 @@ uv sync
 - **Always use `uv run`** - This ensures dependencies are properly managed and isolated
 - `uv` automatically installs missing packages when using `uv run`
 - The project requires Python 3.10 or higher
+
+
+
 
 
 

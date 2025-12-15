@@ -257,6 +257,115 @@ def generate_pdf_report(
         return asyncio.run(_generate_pdf())
 
 
+def generate_static_html(
+    html_path: str | Path,
+    output_path: str | Path | None = None,
+    quiet: bool = False,
+) -> Path:
+    """
+    Generate a static HTML report from an existing HTML report using Playwright.
+
+    Uses a real Chromium browser to render the HTML with all charts, then captures
+    the fully-rendered DOM as a self-contained static HTML file. The result doesn't
+    require JavaScript to display charts.
+
+    Args:
+        html_path: Path to the HTML report
+        output_path: Path for the output static HTML file (optional)
+        quiet: Suppress progress messages
+
+    Returns:
+        Path to the generated static HTML file
+    """
+    import asyncio
+    import re
+
+    async def _generate_static() -> Path:
+        try:
+            from playwright.async_api import async_playwright
+        except ImportError:
+            print("[!] Playwright not installed. Install with: uv add playwright")
+            print("[!] Then run: playwright install chromium")
+            raise
+
+        html_path_resolved = Path(html_path).resolve()
+
+        if not html_path_resolved.exists():
+            raise FileNotFoundError(f"HTML file not found: {html_path_resolved}")
+
+        # Determine output path
+        nonlocal output_path
+        if output_path is None:
+            # Default: add _static suffix before .html
+            stem = html_path_resolved.stem
+            output_path = html_path_resolved.with_name(f"{stem}_static.html")
+        else:
+            output_path = Path(output_path).resolve()
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if not quiet:
+            print("[*] Converting to static HTML with Playwright...")
+
+        async with async_playwright() as p:
+            # Launch headless Chromium
+            browser = await p.chromium.launch()
+
+            # Use a wider viewport for better layout
+            page = await browser.new_page(
+                viewport={"width": 1400, "height": 800},
+                device_scale_factor=2,
+            )
+
+            # Navigate to the HTML file
+            file_url = html_path_resolved.as_uri()
+            await page.goto(file_url)
+
+            # Wait for the page to fully load (including Plotly charts)
+            await page.wait_for_load_state("networkidle")
+
+            # Give Plotly a moment to finish rendering animations
+            await page.wait_for_timeout(1500)
+
+            # Get the fully rendered HTML content
+            rendered_html = await page.content()
+
+            await browser.close()
+
+        # Clean up: Remove Plotly.js script tags (charts are now static SVG)
+        # Remove CDN script tags for Plotly
+        rendered_html = re.sub(
+            r'<script[^>]*src=["\']https://cdn\.plot\.ly/plotly[^"\']*["\'][^>]*></script>',
+            "",
+            rendered_html,
+            flags=re.IGNORECASE,
+        )
+
+        # Write the static HTML file
+        output_path.write_text(rendered_html, encoding="utf-8")
+
+        if not quiet:
+            print(f"[+] Static HTML report saved: {output_path}")
+
+        return output_path
+
+    # Run the async function
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop is not None:
+        # Running inside an existing event loop (e.g., Jupyter/Colab)
+        # Use nest_asyncio to allow nested async calls
+        import nest_asyncio
+        nest_asyncio.apply()
+        # Use the existing loop instead of creating a new one
+        return loop.run_until_complete(_generate_static())
+    else:
+        # No existing loop - create a new one (normal CLI usage)
+        return asyncio.run(_generate_static())
+
+
 def generate_full_report(
     chat_file: str | Path,
     output_dir: str | Path | None = None,
@@ -264,11 +373,12 @@ def generate_full_report(
     min_messages: int = 2,
     report_name: str | None = None,
     generate_pdf: bool = True,
+    generate_static: bool = False,
     fixed_layout: bool = False,
     quiet: bool = False,
-) -> tuple[Path, Path | None]:
+) -> tuple[Path, Path | None, Path | None]:
     """
-    Generate HTML and optionally PDF reports from a WhatsApp chat export.
+    Generate HTML and optionally PDF/static reports from a WhatsApp chat export.
 
     Args:
         chat_file: Path to the WhatsApp export (.zip or .txt)
@@ -277,11 +387,12 @@ def generate_full_report(
         min_messages: Minimum messages per user to include
         report_name: Custom name for the report file (optional, defaults to chat filename)
         generate_pdf: Whether to also generate PDF
+        generate_static: Whether to also generate static HTML (no JavaScript)
         fixed_layout: Force desktop layout on all devices
         quiet: Suppress progress messages
 
     Returns:
-        Tuple of (html_path, pdf_path or None)
+        Tuple of (html_path, pdf_path or None, static_path or None)
     """
     chat_file = Path(chat_file)
 
@@ -353,6 +464,7 @@ def generate_full_report(
         stem = chat_file.stem.replace(" ", "_")
     html_path = output_dir / f"{stem}_report.html"
     pdf_path = output_dir / f"{stem}_report.pdf" if generate_pdf else None
+    static_path = output_dir / f"{stem}_report_static.html" if generate_static else None
 
     # Format peak hour data
     from .analytics import format_hour, get_hour_emoji
@@ -394,7 +506,21 @@ def generate_full_report(
                 print(f"[!] PDF generation failed: {e}")
             pdf_path = None
 
-    return html_path, pdf_path
+    # Generate static HTML if requested
+    if generate_static and static_path:
+        try:
+            generate_static_html(html_path, static_path, quiet=quiet)
+        except ImportError:
+            if not quiet:
+                print("[!] Skipping static HTML generation (Playwright not available)")
+                print("[!] Install with: uv add playwright && playwright install chromium")
+            static_path = None
+        except Exception as e:
+            if not quiet:
+                print(f"[!] Static HTML generation failed: {e}")
+            static_path = None
+
+    return html_path, pdf_path, static_path
 
 
 def main():
@@ -409,6 +535,7 @@ Examples:
   whatsapp-wrapped chat.zip
   whatsapp-wrapped chat.txt --output reports/
   whatsapp-wrapped chat.zip --pdf --year 2024
+  whatsapp-wrapped chat.zip --static --year 2024
   whatsapp-wrapped chat.zip --name "My Group 2024" --year 2024
   whatsapp-wrapped chat.zip --quiet
         """,
@@ -430,6 +557,12 @@ Examples:
         "--pdf",
         action="store_true",
         help="Also generate PDF report",
+    )
+
+    parser.add_argument(
+        "--static",
+        action="store_true",
+        help="Generate static HTML with pre-rendered charts (no JavaScript required)",
     )
 
     parser.add_argument(
@@ -488,13 +621,14 @@ Examples:
         print()
 
     try:
-        html_path, pdf_path = generate_full_report(
+        html_path, pdf_path, static_path = generate_full_report(
             chat_file=chat_file,
             output_dir=args.output,
             year_filter=args.year,
             min_messages=args.min_messages,
             report_name=args.name,
             generate_pdf=args.pdf,
+            generate_static=args.static,
             fixed_layout=args.fixed_layout,
             quiet=args.quiet,
         )
@@ -508,6 +642,8 @@ Examples:
             print(f"  HTML: {html_path}")
             if pdf_path:
                 print(f"  PDF:  {pdf_path}")
+            if static_path:
+                print(f"  Static HTML: {static_path}")
             print()
 
     except Exception as e:
