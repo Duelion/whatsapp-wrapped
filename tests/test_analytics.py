@@ -14,7 +14,7 @@ def test_analyze_chat_returns_valid_structure(chat_data_3months):
     # Check overview stats exist and are valid
     assert analytics.total_messages > 0
     assert analytics.total_members > 0
-    assert analytics.total_days > 0
+    assert analytics.total_words > 0
     assert analytics.messages_per_day > 0
     assert isinstance(analytics.most_active_day, str)
     assert 0 <= analytics.most_active_hour <= 23
@@ -190,6 +190,7 @@ def test_longest_conversation_stats(chat_data_3months):
     assert analytics.longest_conversation["messages"] > 0
     assert analytics.longest_conversation["participants"] > 0
     assert analytics.longest_conversation["participants"] <= analytics.total_members
+
 
 
 

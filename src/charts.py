@@ -267,10 +267,10 @@ def create_timeline_chart(messages_by_date: pd.Series) -> go.Figure:
     return fig
 
 
-def create_top_users_chart(top_messagers: list[tuple[str, int]], max_users: int = 10) -> go.Figure:
-    """Create a horizontal bar chart of top message senders."""
-    users = [u[0] for u in top_messagers[:max_users]]
-    counts = [u[1] for u in top_messagers[:max_users]]
+def create_top_users_chart(top_messagers: list[tuple[str, int]]) -> go.Figure:
+    """Create a horizontal bar chart of all message senders."""
+    users = [u[0] for u in top_messagers]
+    counts = [u[1] for u in top_messagers]
     
     total = sum(counts) if counts else 1
     percentages = [(c / total * 100) for c in counts]

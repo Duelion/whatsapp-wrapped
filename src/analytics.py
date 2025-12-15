@@ -36,7 +36,7 @@ class ChatAnalytics:
     # Overview stats
     total_messages: int
     total_members: int
-    total_days: int
+    total_words: int
     messages_per_day: float
     most_active_day: str
     most_active_hour: int
@@ -257,8 +257,12 @@ def analyze_chat(df: pd.DataFrame) -> ChatAnalytics:
     total_members = df["name"].nunique()
 
     date_range = df["timestamp"].max() - df["timestamp"].min()
-    total_days = max(date_range.days, 1)
-    messages_per_day = round(total_messages / total_days, 1)
+    num_days = max(date_range.days, 1)
+    messages_per_day = round(total_messages / num_days, 1)
+    
+    # Calculate total words across all messages
+    df["word_count"] = df["message"].apply(get_word_count)
+    total_words = int(df["word_count"].sum())
 
     # Time-based aggregations
     messages_by_hour = df.groupby(df["timestamp"].dt.hour).size()
@@ -287,7 +291,7 @@ def analyze_chat(df: pd.DataFrame) -> ChatAnalytics:
     user_stats = [calculate_user_stats(df, name, full_date_range) for name in user_names]
     user_stats.sort(key=lambda x: x.total_messages, reverse=True)
 
-    top_messagers = [(u.name, u.total_messages) for u in user_stats[:10]]
+    top_messagers = [(u.name, u.total_messages) for u in user_stats]
 
     # Hourly activity by user (for heatmap)
     hourly_by_user = df.groupby([df["name"], df["timestamp"].dt.hour]).size().unstack(fill_value=0)
@@ -334,7 +338,7 @@ def analyze_chat(df: pd.DataFrame) -> ChatAnalytics:
     return ChatAnalytics(
         total_messages=total_messages,
         total_members=total_members,
-        total_days=total_days,
+        total_words=total_words,
         messages_per_day=messages_per_day,
         most_active_day=most_active_day,
         most_active_hour=most_active_hour,
