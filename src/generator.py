@@ -143,7 +143,7 @@ def generate_pdf_report(
     """
     Generate a PDF report from an existing HTML report using Playwright.
 
-    Uses a real Chromium browser to render the HTML, ensuring all CSS
+    Uses a real WebKit browser to render the HTML, ensuring all CSS
     and JavaScript (including Plotly charts) render correctly.
 
     Args:
@@ -161,7 +161,7 @@ def generate_pdf_report(
             from playwright.async_api import async_playwright
         except ImportError:
             print("[!] Playwright not installed. Install with: uv add playwright")
-            print("[!] Then run: playwright install chromium")
+            print("[!] Then run: playwright install webkit")
             raise
 
         html_path_resolved = Path(html_path).resolve()
@@ -181,8 +181,8 @@ def generate_pdf_report(
             print("[*] Converting HTML to PDF with Playwright...")
 
         async with async_playwright() as p:
-            # Launch headless Chromium
-            browser = await p.chromium.launch()
+            # Launch headless WebKit
+            browser = await p.webkit.launch()
 
             # Use a wider viewport for better layout
             # device_scale_factor=2 for high-DPI/retina quality rendering
@@ -265,7 +265,7 @@ def generate_static_html(
     """
     Generate a static HTML report from an existing HTML report using Playwright.
 
-    Uses a real Chromium browser to render the HTML with all charts, then captures
+    Uses a real WebKit browser to render the HTML with all charts, then captures
     the fully-rendered DOM as a self-contained static HTML file. The result doesn't
     require JavaScript to display charts.
 
@@ -285,7 +285,7 @@ def generate_static_html(
             from playwright.async_api import async_playwright
         except ImportError:
             print("[!] Playwright not installed. Install with: uv add playwright")
-            print("[!] Then run: playwright install chromium")
+            print("[!] Then run: playwright install webkit")
             raise
 
         html_path_resolved = Path(html_path).resolve()
@@ -307,8 +307,8 @@ def generate_static_html(
             print("[*] Converting to static HTML with Playwright...")
 
         async with async_playwright() as p:
-            # Launch headless Chromium
-            browser = await p.chromium.launch()
+            # Launch headless WebKit
+            browser = await p.webkit.launch()
 
             # Use a wider viewport for better layout
             page = await browser.new_page(
@@ -499,7 +499,7 @@ def generate_full_report(
         except ImportError:
             if not quiet:
                 print("[!] Skipping PDF generation (Playwright not available)")
-                print("[!] Install with: uv add playwright && playwright install chromium")
+                print("[!] Install with: uv add playwright && playwright install webkit")
             pdf_path = None
         except Exception as e:
             if not quiet:
@@ -513,7 +513,7 @@ def generate_full_report(
         except ImportError:
             if not quiet:
                 print("[!] Skipping static HTML generation (Playwright not available)")
-                print("[!] Install with: uv add playwright && playwright install chromium")
+                print("[!] Install with: uv add playwright && playwright install webkit")
             static_path = None
         except Exception as e:
             if not quiet:
