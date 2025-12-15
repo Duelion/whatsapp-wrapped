@@ -377,7 +377,7 @@ def create_message_types_chart(message_type_counts: pd.Series) -> go.Figure:
         go.Pie(
             labels=labels,
             values=values,
-            hole=0.5,  # Donut chart
+            hole=0.45,  # Slightly smaller donut hole
             pull=pull,
             marker_colors=colors,
             marker_line_color=COLORS["background"],
@@ -390,17 +390,6 @@ def create_message_types_chart(message_type_counts: pd.Series) -> go.Figure:
             hovertemplate="<b>%{label}</b><br>%{value:,} messages<br>%{percent}<extra></extra>",
         )
     )
-    
-    # Add center annotation in the donut hole
-    fig.add_annotation(
-        text="Message<br>Types",
-        x=0.5, 
-        y=0.5,
-        font={"size": 16, "color": COLORS["text_secondary"], "family": "Geist, sans-serif"},
-        showarrow=False,
-        xref="paper",
-        yref="paper",
-    )
 
     fig.update_layout(
         template="plotly_dark",
@@ -411,25 +400,17 @@ def create_message_types_chart(message_type_counts: pd.Series) -> go.Figure:
             "color": COLORS["text"],
             "size": 12,
         },
-        title={
-            "text": "Message Types",
-            "font": {"size": 14, "color": COLORS["text_secondary"]},
-            "x": 0.02,
-            "xanchor": "left",
-            "y": 0.98,
-            "yanchor": "top",
-        },
         height=400,
-        margin={"l": 35, "r": 35, "t": 50, "b": 35},
+        margin={"l": 35, "r": 120, "t": 30, "b": 35},
         showlegend=True,
         legend={
             "bgcolor": "rgba(0,0,0,0)",
-            "font": {"color": COLORS["text_muted"], "size": 10},
+            "font": {"color": COLORS["text_muted"], "size": 11},
             "orientation": "v",
             "yanchor": "middle",
             "y": 0.5,
-            "xanchor": "right",
-            "x": 1.15,
+            "xanchor": "left",
+            "x": 1.02,
         },
         hoverlabel={
             "bgcolor": COLORS["surface"],
@@ -590,8 +571,8 @@ def create_calendar_heatmap(messages_by_date: pd.Series) -> go.Figure:
             "size": 12,
         },
         title="",  # Remove title - section header already provides context
-        height=290,  # Increased height to accommodate square cells
-        margin={"l": 60, "r": 30, "t": 20, "b": 50},  # Reduced top margin
+        height=220,  # Compact height - 7 days don't need much vertical space
+        margin={"l": 50, "r": 20, "t": 30, "b": 40},  # Minimal margins
         hoverlabel={
             "bgcolor": COLORS["surface"],
             "bordercolor": COLORS["border"],
@@ -600,7 +581,6 @@ def create_calendar_heatmap(messages_by_date: pd.Series) -> go.Figure:
     )
     
     # Update all xaxis and yaxis to match dark theme with better readability
-    # Force square cells by setting equal aspect ratio
     for key in fig.layout:
         if key.startswith('xaxis') or key.startswith('yaxis'):
             axis = fig.layout[key]
@@ -608,20 +588,14 @@ def create_calendar_heatmap(messages_by_date: pd.Series) -> go.Figure:
                 axis.update(
                     gridcolor=COLORS["grid"],
                     linecolor=COLORS["grid"],
-                    tickfont={"color": COLORS["text_secondary"], "size": 10},  # Slightly smaller, more readable
+                    tickfont={"color": COLORS["text_secondary"], "size": 10},
                     title_font={"color": COLORS["text_secondary"], "size": 11},
                 )
-                # Force square cells by setting scaleanchor
-                if key.startswith('yaxis'):
-                    axis.update(
-                        scaleanchor="x" if key == "yaxis" else f"x{key[5:]}",
-                        scaleratio=1,
-                    )
     
     return fig
 
 
-def create_emoji_chart(top_emojis: list[tuple[str, int]], max_emojis: int = 7) -> go.Figure:
+def create_emoji_chart(top_emojis: list[tuple[str, int]], max_emojis: int = 10) -> go.Figure:
     """Create a horizontal bar chart of top emojis with ranking labels."""
     emojis = [e[0] for e in top_emojis[:max_emojis]]
     counts = [e[1] for e in top_emojis[:max_emojis]]
@@ -645,7 +619,7 @@ def create_emoji_chart(top_emojis: list[tuple[str, int]], max_emojis: int = 7) -
         rankings.append(rank)
         rank_medals.append(medal)
 
-    # Reverse for horizontal bar (bottom to top = 7th to 1st)
+    # Reverse for horizontal bar (bottom to top = 10th to 1st)
     emojis = emojis[::-1]
     counts = counts[::-1]
     rankings = rankings[::-1]
@@ -679,14 +653,15 @@ def create_emoji_chart(top_emojis: list[tuple[str, int]], max_emojis: int = 7) -
     )
 
     layout = get_modern_layout(
-        title="Top 7 Emojis (🥇 = Most Used)",
+        title="",  # No title - will be added in HTML
         xaxis_title="Count",
         yaxis_title="",
-        height=50 + 45 * len(emojis),
+        height=50 + 38 * len(emojis),
         show_legend=False,
     )
-    layout["yaxis"]["tickfont"] = {"size": 18}
-    layout["margin"]["l"] = 110  # Increase left margin for ranking labels
+    layout["yaxis"]["tickfont"] = {"size": 16}
+    layout["margin"]["l"] = 90
+    layout["margin"]["t"] = 30
 
     fig.update_layout(**layout)
 
