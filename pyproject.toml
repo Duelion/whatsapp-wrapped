@@ -44,9 +44,9 @@ dependencies = [
 whatsapp-wrapped = "src.generator:main"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/whatsapp-wrapped"
-Repository = "https://github.com/yourusername/whatsapp-wrapped"
-Issues = "https://github.com/yourusername/whatsapp-wrapped/issues"
+Homepage = "https://github.com/Duelion/whatsapp-wrapped"
+Repository = "https://github.com/Duelion/whatsapp-wrapped"
+Issues = "https://github.com/Duelion/whatsapp-wrapped/issues"
 
 [project.optional-dependencies]
 dev = [

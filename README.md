@@ -39,10 +39,11 @@ The easiest way to use WhatsApp Wrapped - no installation needed!
 </a>
 
 1. Click the button above to open the notebook in Google Colab
-2. Run the setup cell to install dependencies
-3. Configure your options (year filter, minimum messages)
-4. Upload your WhatsApp chat export
-5. Download your beautiful report!
+2. **Step 1:** Run the setup cell to install dependencies
+3. **Step 2:** Choose your output format (HTML only or HTML + PDF)
+4. **Step 3:** Upload your WhatsApp chat export (.zip or .txt)
+5. **Step 4:** Configure filters (year, users) and generate your report
+6. Download your beautiful report!
 
 ### Option 2: Local Installation
 
