@@ -34,8 +34,8 @@
 
 The easiest way to use WhatsApp Wrapped - no installation needed!
 
-<a href="https://colab.research.google.com/github/Duelion/whatsapp-wrapped/blob/main/whatsapp_wrapped.ipynb" target="_blank">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" height="32">
+<a href="https://colab.research.google.com/github/Duelion/whatsapp-wrapped/blob/main/whatsapp_wrapped.ipynb" target="_blank" rel="noopener noreferrer">
+  <img src="https://img.shields.io/badge/Open_in-Google_Colab-F9AB00?style=for-the-badge&logo=googlecolab&logoColor=white" alt="Open In Colab">
 </a>
 
 1. Click the button above to open the notebook in Google Colab
