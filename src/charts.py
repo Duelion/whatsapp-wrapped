@@ -230,36 +230,27 @@ def create_messages_by_weekday_chart(messages_by_weekday: pd.Series) -> go.Figur
 
 
 def create_timeline_chart(messages_by_date: pd.Series) -> go.Figure:
-    """Create a line/area chart showing messages over time with toggleable traces."""
+    """Create a smoothed area chart showing message trend over time."""
     dates = pd.to_datetime(messages_by_date.index)
     values = messages_by_date.values
 
+    # Apply 3-day centered rolling average for smoothing (matches sparklines)
+    rolling_avg = pd.Series(values).rolling(window=3, min_periods=1, center=True).mean()
+
     fig = go.Figure()
 
-    # Add area fill with gradient
-    fig.add_trace(
-        go.Scatter(
-            x=dates,
-            y=values,
-            fill="tozeroy",
-            fillcolor="rgba(59, 130, 246, 0.15)",
-            line={"color": COLORS["blue"], "width": 1.5},
-            mode="lines",
-            name="Daily",
-            hovertemplate="%{x|%b %d, %Y}<br><b>%{y:,}</b> messages<extra></extra>",
-        )
-    )
-
-    # Add rolling average line
-    rolling_avg = pd.Series(values).rolling(window=7, min_periods=1).mean()
+    # Single smoothed line with area fill, hover shows actual daily value
     fig.add_trace(
         go.Scatter(
             x=dates,
             y=rolling_avg,
-            line={"color": COLORS["violet"], "width": 2},
+            fill="tozeroy",
+            fillcolor="rgba(59, 130, 246, 0.1)",
+            line={"color": COLORS["blue"], "width": 2},
             mode="lines",
-            name="7-day avg",
-            hovertemplate="%{x|%b %d, %Y}<br><b>%{y:.0f}</b> avg<extra></extra>",
+            name="Trend",
+            customdata=values,  # Store actual daily values for hover
+            hovertemplate="%{x|%b %d, %Y}<br><b>%{customdata:,}</b> messages<extra></extra>",
         )
     )
 
@@ -268,20 +259,9 @@ def create_timeline_chart(messages_by_date: pd.Series) -> go.Figure:
         xaxis_title="Date",
         yaxis_title="Messages",
         height=350,
-        show_legend=True,
+        show_legend=False,  # Single trace, no legend needed
     )
-    
-    # Make legend interactive for toggling traces
-    layout["legend"] = {
-        "bgcolor": "rgba(0,0,0,0)",
-        "font": {"color": COLORS["text_muted"], "size": 11},
-        "orientation": "h",
-        "yanchor": "bottom",
-        "y": 1.02,
-        "xanchor": "left",
-        "x": 0,
-    }
-    
+
     fig.update_layout(**layout)
 
     return fig

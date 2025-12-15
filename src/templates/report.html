@@ -421,8 +421,7 @@
 
         .stats-grid {
             display: grid;
-            grid-template-columns: 2fr 1fr 1fr;
-            grid-template-rows: auto auto;
+            grid-template-columns: repeat(4, 1fr);
             gap: 1rem;
             margin: 3rem 0;
             animation: fadeInUp 0.6s ease-out 0.1s both;
@@ -464,7 +463,6 @@
         }
 
         .stat-card.hero {
-            grid-row: span 2;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -495,7 +493,7 @@
         }
 
         .stat-card.hero .stat-icon {
-            font-size: 3rem;
+            font-size: 2rem;
         }
 
         @keyframes iconFloat {
@@ -520,7 +518,7 @@
         }
 
         .stat-card.hero .stat-value {
-            font-size: 4.5rem;
+            font-size: 2.75rem;
             background: var(--gradient-accent);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -1328,19 +1326,10 @@
         {% if not fixed_layout %}
         @media (max-width: 900px) {
             .stats-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-
-            .stat-card.hero {
-                grid-column: span 2;
-                grid-row: span 1;
+                grid-template-columns: repeat(2, 1fr);
             }
 
             .stat-card.hero .stat-value {
-                font-size: 3.5rem;
-            }
-
-            .stat-card.hero .stat-icon {
                 font-size: 2.5rem;
             }
 
@@ -1384,19 +1373,11 @@
             }
 
             .stats-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .stat-card.hero {
-                grid-column: span 1;
+                grid-template-columns: repeat(2, 1fr);
             }
 
             .stat-card.hero .stat-value {
-                font-size: 3rem;
-            }
-
-            .stat-card.hero .stat-icon {
-                font-size: 2.5rem;
+                font-size: 2.25rem;
             }
 
             .stat-icon {
@@ -1417,15 +1398,15 @@
         }
 
         @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
             .stat-value {
                 font-size: 2rem;
             }
 
             .stat-card.hero .stat-value {
-                font-size: 2.5rem;
-            }
-
-            .stat-card.hero .stat-icon {
                 font-size: 2rem;
             }
 
@@ -1516,7 +1497,7 @@
                 <div class="stat-value amber">{{ analytics.total_days }}</div>
                 <div class="stat-detail">Days of history</div>
             </div>
-            <div class="stat-card" data-accent="green" style="grid-column: span 2;">
+            <div class="stat-card" data-accent="green">
                 <div class="stat-icon">📊</div>
                 <div class="stat-label">Daily Average</div>
                 <div class="stat-value green">{{ analytics.messages_per_day }}</div>
@@ -1644,14 +1625,16 @@
                         <div class="user-info">
                             <div class="user-name">{{ user.name }}</div>
                             <div class="user-badges">
-                                <!-- Rank badge -->
+                                <!-- Rank badge (only for top 3) -->
+                                {% if loop.index <= 3 %}
                                 <span class="user-badge user-badge-rank">
-                                    {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}#{{ loop.index }}{% endif %}
+                                    {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% else %}🥉{% endif %}
                                     <span class="user-badge-tooltip">
                                         <div class="user-badge-tooltip-label">#{{ loop.index }} Contributor</div>
                                         <div class="user-badge-tooltip-detail">Rank by message count</div>
                                     </span>
                                 </span>
+                                {% endif %}
                                 <!-- Achievement badges -->
                                 {% for badge in user_badges.get(user.name, []) %}
                                 <span class="user-badge">
