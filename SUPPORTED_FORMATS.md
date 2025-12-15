@@ -162,3 +162,4 @@ Not Supported: 2024/01/28, 15:30:00 - 田中: こんにちは
 
 The parser now supports **over 90 different date/time format combinations**, making it compatible with WhatsApp exports from virtually any regional phone configuration worldwide! 🌍
 
+
