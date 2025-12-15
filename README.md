@@ -122,6 +122,8 @@ Options:
 
 ## 📊 Example Output
 
+**[🔗 View Live Sample Report](https://htmlpreview.github.io/?https://raw.githubusercontent.com/Duelion/whatsapp-wrapped/main/.github/assets/sample_report.html)** - See what your report will look like!
+
 The report includes:
 
 - **Overview Stats**: Total messages, date range, member count
