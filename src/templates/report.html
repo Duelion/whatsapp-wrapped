@@ -1733,27 +1733,6 @@
             </div>
         </section>
 
-        <!-- Content Analysis Section -->
-        <section class="section">
-            <div class="section-header">
-                <h2 class="section-title">What You Share</h2>
-                <p class="section-subtitle">From media to emojis, here's what fills your chat</p>
-            </div>
-
-            <div class="chart-grid">
-                <div class="chart-container">
-                    <h3 class="chart-title">Message Types</h3>
-                    {{ charts.message_types | safe }}
-                </div>
-                {% if charts.emojis %}
-                <div class="chart-container">
-                    <h3 class="chart-title">Top 10 Emojis</h3>
-                    {{ charts.emojis | safe }}
-                </div>
-                {% endif %}
-            </div>
-        </section>
-
         <!-- Footer -->
         <footer class="footer">
             <div class="footer-logo">WhatsApp Wrapped</div>
