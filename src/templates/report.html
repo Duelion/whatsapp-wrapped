@@ -688,7 +688,7 @@
             border-radius: var(--radius-lg);
             position: relative;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            overflow: hidden;
+            overflow: visible;
         }
 
         .user-card::before {
@@ -810,10 +810,45 @@
             gap: 0.35rem;
             font-size: 0.75rem;
             color: var(--text-secondary);
+            cursor: help;
+            position: relative;
+            padding: 0.35rem 0.5rem;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+        }
+
+        .badge-legend-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
         }
 
         .badge-legend-emoji {
             font-size: 0.9rem;
+        }
+
+        .badge-legend-item-tooltip {
+            visibility: hidden;
+            position: absolute;
+            bottom: calc(100% + 10px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-default);
+            color: var(--text-primary);
+            padding: 0.5rem 0.75rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.7rem;
+            white-space: nowrap;
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            box-shadow: var(--shadow-md);
+        }
+
+        .badge-legend-item:hover .badge-legend-item-tooltip {
+            visibility: visible;
+            opacity: 1;
         }
 
         /* User Badges */
@@ -1546,19 +1581,58 @@
             <div class="badge-legend">
                 <div class="badge-legend-title">Badge Legend</div>
                 <div class="badge-legend-items">
-                    <span class="badge-legend-item"><span class="badge-legend-emoji">🥇🥈🥉</span> Rank</span>
-                    <span class="badge-legend-item"><span class="badge-legend-emoji">🔥</span> Streak Master</span>
-                    <span class="badge-legend-item"><span class="badge-legend-emoji">👻</span> Ghost</span>
-                    <span class="badge-legend-item"><span class="badge-legend-emoji">🦉</span> Night Owl</span>
-                    <span class="badge-legend-item"><span class="badge-legend-emoji">🐦</span> Early Bird</span>
-                    <span class="badge-legend-item"><span class="badge-legend-emoji">😂</span> Emoji King</span>
-                    <span class="badge-legend-item"><span class="badge-legend-emoji">📸</span> Shutterbug</span>
-                    <span class="badge-legend-item"><span class="badge-legend-emoji">🎬</span> Director</span>
-                    <span class="badge-legend-item"><span class="badge-legend-emoji">🎭</span> Sticker Maniac</span>
-                    <span class="badge-legend-item"><span class="badge-legend-emoji">🎤</span> Voice Actor</span>
-                    <span class="badge-legend-item"><span class="badge-legend-emoji">🔗</span> Link Sharer</span>
-                    <span class="badge-legend-item"><span class="badge-legend-emoji">📝</span> Novelist</span>
-                    <span class="badge-legend-item"><span class="badge-legend-emoji">⚡</span> Speedster</span>
+                    <span class="badge-legend-item">
+                        <span class="badge-legend-emoji">🥇🥈🥉</span> Rank
+                        <span class="badge-legend-item-tooltip">Top 3 contributors by message count</span>
+                    </span>
+                    <span class="badge-legend-item">
+                        <span class="badge-legend-emoji">🔥</span> Streak Master
+                        <span class="badge-legend-item-tooltip">Longest consecutive days messaging</span>
+                    </span>
+                    <span class="badge-legend-item">
+                        <span class="badge-legend-emoji">👻</span> Ghost
+                        <span class="badge-legend-item-tooltip">Longest silence between messages</span>
+                    </span>
+                    <span class="badge-legend-item">
+                        <span class="badge-legend-emoji">🦉</span> Night Owl
+                        <span class="badge-legend-item-tooltip">Most active between midnight and 6am</span>
+                    </span>
+                    <span class="badge-legend-item">
+                        <span class="badge-legend-emoji">🐦</span> Early Bird
+                        <span class="badge-legend-item-tooltip">Most active between 6am and 10am</span>
+                    </span>
+                    <span class="badge-legend-item">
+                        <span class="badge-legend-emoji">😂</span> Emoji King
+                        <span class="badge-legend-item-tooltip">Uses the most emojis per message</span>
+                    </span>
+                    <span class="badge-legend-item">
+                        <span class="badge-legend-emoji">📸</span> Shutterbug
+                        <span class="badge-legend-item-tooltip">Sends the most photos</span>
+                    </span>
+                    <span class="badge-legend-item">
+                        <span class="badge-legend-emoji">🎬</span> Director
+                        <span class="badge-legend-item-tooltip">Sends the most videos</span>
+                    </span>
+                    <span class="badge-legend-item">
+                        <span class="badge-legend-emoji">🎭</span> Sticker Maniac
+                        <span class="badge-legend-item-tooltip">Sends the most stickers</span>
+                    </span>
+                    <span class="badge-legend-item">
+                        <span class="badge-legend-emoji">🎤</span> Voice Actor
+                        <span class="badge-legend-item-tooltip">Sends the most voice messages</span>
+                    </span>
+                    <span class="badge-legend-item">
+                        <span class="badge-legend-emoji">🔗</span> Link Sharer
+                        <span class="badge-legend-item-tooltip">Shares the most links</span>
+                    </span>
+                    <span class="badge-legend-item">
+                        <span class="badge-legend-emoji">📝</span> Novelist
+                        <span class="badge-legend-item-tooltip">Highest average message length</span>
+                    </span>
+                    <span class="badge-legend-item">
+                        <span class="badge-legend-emoji">⚡</span> Speedster
+                        <span class="badge-legend-item-tooltip">Fastest average response time</span>
+                    </span>
                 </div>
             </div>
 
