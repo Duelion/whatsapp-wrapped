@@ -326,6 +326,22 @@ def generate_static_html(
             # Give Plotly a moment to finish rendering animations
             await page.wait_for_timeout(1500)
 
+            # Force Plotly to redraw all charts to ensure annotations render
+            await page.evaluate("""
+                () => {
+                    // Find all Plotly chart containers and force relayout
+                    const plots = document.querySelectorAll('.js-plotly-plot');
+                    plots.forEach(plot => {
+                        if (window.Plotly && plot.data) {
+                            Plotly.relayout(plot, {});
+                        }
+                    });
+                }
+            """)
+
+            # Wait a bit more for the relayout to complete
+            await page.wait_for_timeout(500)
+
             # Get the fully rendered HTML content
             rendered_html = await page.content()
 
