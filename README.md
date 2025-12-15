@@ -15,8 +15,12 @@
     <img src="https://cdn.buymeacoffee.com/buttons/v2/default-red.png" alt="Buy Me A Coffee" width="150">
   </a>
 </p>
+<p align="center">
+  <a href="https://duelion.github.io/whatsapp-wrapped/sample_report.html" target="_blank" rel="noopener noreferrer">
+    [View Live Sample Report]
+  </a>
+</p>
 
-**[🔗 View Live Sample Report](https://duelion.github.io/whatsapp-wrapped/sample_report.html)** - See what your report will look like!
 
 ---
 
