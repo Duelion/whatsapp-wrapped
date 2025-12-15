@@ -15,7 +15,7 @@ data/processed/*.pkl
 /*.html
 /*.pdf
 # Exception: Allow the sample report in assets
-!assets/sample_report.html
+!sample_report.html
 output/**/*.html
 output/**/*.pdf
 output/**/*.png
