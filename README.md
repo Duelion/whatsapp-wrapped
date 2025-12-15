@@ -33,7 +33,7 @@
 | 📈 **Rich Analytics** | 🎨 **Interactive Charts** | 👥 **User Insights** |
 | Message counts, patterns & emoji stats | Beautiful Plotly visualizations | Top contributors & activity sparklines |
 | 📅 **Calendar Heatmaps** | 📄 **Multiple Formats** | 🔒 **100% Private** |
-| Year-at-a-glance activity view | HTML, Static HTML, or PDF | All processing stays on your device |
+| Year-at-a-glance activity view | HTML (Desktop), Static HTML (Mobile), or PDF | All processing stays on your device |
 
 ---
 
@@ -62,33 +62,6 @@ uv run whatsapp-wrapped your-chat.zip
 > 💡 Don't have `uv`? Install it: `curl -LsSf https://astral.sh/uv/install.sh | sh` (macOS/Linux) or `irm https://astral.sh/uv/install.ps1 | iex` (Windows)
 
 Run `uv run whatsapp-wrapped --help` for all options (year filter, PDF export, static HTML, and more).
-
----
-
-## 📊 Output Formats
-
-WhatsApp Wrapped can generate reports in multiple formats:
-
-| Format | Description | Best For |
-|--------|-------------|----------|
-| **HTML** (default) | Interactive report with dynamic Plotly charts | Viewing in modern browsers with JavaScript |
-| **Static HTML** (`--static`) | Pre-rendered charts as SVG, no JavaScript required | Archiving, sharing, or viewing in restricted environments |
-| **PDF** (`--pdf`) | Print-ready document with dark theme | Printing or sharing as a document |
-
-**Examples:**
-```bash
-# Interactive HTML only (default)
-uv run whatsapp-wrapped chat.zip --year 2025
-
-# Static HTML (no JavaScript needed)
-uv run whatsapp-wrapped chat.zip --year 2025 --static
-
-# PDF report
-uv run whatsapp-wrapped chat.zip --year 2025 --pdf
-
-# Generate all formats at once
-uv run whatsapp-wrapped chat.zip --year 2025 --pdf --static
-```
 
 ---
 
