@@ -53,21 +53,71 @@ DATE_FORMATS = [
     "%d-%m-%y, %I:%M %p",  # DD-MM-YY 12-hour
     "%d-%m-%Y, %I:%M:%S %p",  # DD-MM-YYYY 12-hour with seconds
     "%d-%m-%Y, %I:%M %p",  # DD-MM-YYYY 12-hour
+    # Year-first formats (Asian locales: Japan, China, Korea, Hungary)
+    "%Y/%m/%d, %H:%M:%S",  # YYYY/MM/DD 24-hour: 2024/01/28, 15:30:00
+    "%Y/%m/%d, %H:%M",  # YYYY/MM/DD without seconds
+    "%Y-%m-%d, %I:%M:%S %p",  # Year-first 12-hour: 2024-01-28, 3:30:00 PM
+    "%Y-%m-%d, %I:%M %p",  # Year-first 12-hour without seconds
+    "%Y/%m/%d, %I:%M:%S %p",  # Year-first slashes 12-hour
+    "%Y/%m/%d, %I:%M %p",  # Year-first slashes 12-hour without seconds
+    "%Y.%m.%d, %H:%M:%S",  # Year-first dots 24-hour
+    "%Y.%m.%d, %H:%M",  # Year-first dots without seconds
+    "%Y.%m.%d, %I:%M:%S %p",  # Year-first dots 12-hour
+    "%Y.%m.%d, %I:%M %p",  # Year-first dots 12-hour without seconds
+    # German dots with 12-hour AM/PM
+    "%d.%m.%y, %I:%M:%S %p",  # DD.MM.YY 12-hour: 28.01.24, 3:30:00 PM
+    "%d.%m.%y, %I:%M %p",  # DD.MM.YY 12-hour without seconds
+    "%d.%m.%Y, %I:%M:%S %p",  # DD.MM.YYYY 12-hour with seconds
+    "%d.%m.%Y, %I:%M %p",  # DD.MM.YYYY 12-hour without seconds
+    # No-comma variants (space-only separator) - Brazilian, some Android versions
+    "%d/%m/%y %H:%M:%S",  # DD/MM/YY space separator: 28/01/24 15:30:00
+    "%d/%m/%y %H:%M",  # DD/MM/YY space separator without seconds
+    "%m/%d/%y %H:%M:%S",  # MM/DD/YY space separator
+    "%m/%d/%y %H:%M",  # MM/DD/YY space separator without seconds
+    "%d-%m-%y %H:%M:%S",  # DD-MM-YY space separator
+    "%d-%m-%y %H:%M",  # DD-MM-YY space separator without seconds
+    "%d-%m-%Y %H:%M:%S",  # DD-MM-YYYY space separator (4-digit year)
+    "%d-%m-%Y %H:%M",  # DD-MM-YYYY space separator without seconds
+    "%d/%m/%Y %H:%M:%S",  # DD/MM/YYYY space separator
+    "%d/%m/%Y %H:%M",  # DD/MM/YYYY space separator without seconds
+    "%m/%d/%Y %H:%M:%S",  # MM/DD/YYYY space separator
+    "%m/%d/%Y %H:%M",  # MM/DD/YYYY space separator without seconds
+    "%d.%m.%y %H:%M:%S",  # German dots space separator
+    "%d.%m.%y %H:%M",  # German dots space separator without seconds
+    "%d.%m.%Y %H:%M:%S",  # German dots space separator 4-digit year
+    "%d.%m.%Y %H:%M",  # German dots space separator 4-digit year without seconds
+    # 12-hour with space separator
+    "%d/%m/%y %I:%M:%S %p",  # DD/MM/YY space 12-hour
+    "%d/%m/%y %I:%M %p",  # DD/MM/YY space 12-hour without seconds
+    "%m/%d/%y %I:%M:%S %p",  # MM/DD/YY space 12-hour
+    "%m/%d/%y %I:%M %p",  # MM/DD/YY space 12-hour without seconds
+    "%d/%m/%Y %I:%M:%S %p",  # DD/MM/YYYY space 12-hour
+    "%d/%m/%Y %I:%M %p",  # DD/MM/YYYY space 12-hour without seconds
+    "%m/%d/%Y %I:%M:%S %p",  # MM/DD/YYYY space 12-hour
+    "%m/%d/%Y %I:%M %p",  # MM/DD/YYYY space 12-hour without seconds
+    # ISO 8601 with T separator (technical exports)
+    "%Y-%m-%dT%H:%M:%S",  # ISO 8601: 2024-01-28T15:30:00
+    "%Y-%m-%dT%H:%M",  # ISO 8601 without seconds
 ]
 
 # Pattern to match WhatsApp message lines
 # Handles formats like: [DD-MM-YY, HH:MM:SS] Name: Message
 # Or: DD/MM/YY, HH:MM - Name: Message
+# Or: YYYY-MM-DD, HH:MM - Name: Message (year-first Asian formats)
+# Or: 2024-01-28T15:30:00 - Name: Message (ISO 8601)
 # System messages don't have the "Name:" part
 MESSAGE_PATTERNS = [
     r"\[(.+?)\] (.+?):\s*(.*)",  # [timestamp] name: message (iOS export)
-    r"(\d{1,2}[-/\.]\d{1,2}[-/\.]\d{2,4},?\s*\d{1,2}:\d{2}(?::\d{2})?(?:\s*[APap][Mm])?)\s*-\s*(.+?):\s*(.*)",  # Android export with author
+    # Android export: unified pattern to handle ALL date/time variations (year-first, day-first, month-first)
+    # Matches: YYYY-MM-DD, DD-MM-YY, MM/DD/YY, etc., with comma/space/T separator, time with :/., optional AM/PM with/without dots
+    r"(\d{1,4}[-/\.]\d{1,2}[-/\.]\d{1,4}[,\sT]+\d{1,2}[:\.]?\d{2}(?:[:\.]?\d{2})?(?:\s*[APap]\.?[Mm]\.?)?)\s*-\s*(.+?):\s*(.*)",
 ]
 
 # Patterns for system messages (no author/colon)
 SYSTEM_MESSAGE_PATTERNS = [
     r"\[(.+?)\] (.+)$",  # [timestamp] system message (iOS export)
-    r"(\d{1,2}[-/\.]\d{1,2}[-/\.]\d{2,4},?\s*\d{1,2}:\d{2}(?::\d{2})?(?:\s*[APap][Mm])?)\s*-\s*(.+)$",  # Android export system message
+    # Android system messages: same unified pattern as user messages
+    r"(\d{1,4}[-/\.]\d{1,2}[-/\.]\d{1,4}[,\sT]+\d{1,2}[:\.]?\d{2}(?:[:\.]?\d{2})?(?:\s*[APap]\.?[Mm]\.?)?)\s*-\s*(.+)$",
 ]
 
 
@@ -135,9 +185,23 @@ def _parse_timestamp(timestamp_str: str) -> datetime | None:
     """Try to parse a timestamp string using various formats."""
     timestamp_str = timestamp_str.strip()
     
-    # Normalize AM/PM variations (e.g., "am" -> "AM", "11PM" -> "11 PM")
+    # Normalize AM/PM variations (e.g., "am" -> "AM", "11PM" -> "11 PM", "3:30 A.M." -> "3:30 AM")
+    # Handle A.M./P.M. with periods first
+    timestamp_str = re.sub(r'([APap])\.([Mm])\.', r'\1\2', timestamp_str)  # A.M./P.M. -> AM/PM
     timestamp_str = re.sub(r'(\d)([APap][Mm])', r'\1 \2', timestamp_str)  # Add space before AM/PM
     timestamp_str = re.sub(r'\b([APap][Mm])\b', lambda m: m.group(1).upper(), timestamp_str)  # Uppercase AM/PM
+    
+    # Normalize dot time separators to colons (e.g., "15.30.00" -> "15:30:00", Finnish/Baltic format)
+    # Look for time pattern after comma or space: HH.MM.SS or HH.MM
+    # Only replace dots that come after the date part (after comma or space)
+    if re.search(r'[,\s]\d{1,2}\.\d{2}', timestamp_str):
+        # Has dot time separator - replace dots with colons only in time part
+        parts = re.split(r'([,\s]+)', timestamp_str, maxsplit=1)
+        if len(parts) >= 3:
+            # parts[0] = date, parts[1] = separator, parts[2] = time
+            time_part = parts[2]
+            time_part = re.sub(r'\.', ':', time_part)  # Replace all dots in time with colons
+            timestamp_str = parts[0] + parts[1] + time_part
 
     for fmt in DATE_FORMATS:
         try:
@@ -242,15 +306,17 @@ def parse_chat(raw_text: str) -> pd.DataFrame:
     original_formats = DATE_FORMATS.copy()
     
     if date_order == "DD/MM":
-        # Prioritize DD/MM formats (those starting with %d)
+        # Prioritize DD/MM formats (those starting with %d), keep year-first and ISO formats
         dd_first = [f for f in DATE_FORMATS if f.startswith("%d")]
         mm_first = [f for f in DATE_FORMATS if f.startswith("%m")]
-        DATE_FORMATS = dd_first + mm_first
+        year_first = [f for f in DATE_FORMATS if f.startswith("%Y")]
+        DATE_FORMATS = dd_first + year_first + mm_first
     elif date_order == "MM/DD":
-        # Prioritize MM/DD formats (those starting with %m)
+        # Prioritize MM/DD formats (those starting with %m), keep year-first and ISO formats
         mm_first = [f for f in DATE_FORMATS if f.startswith("%m")]
         dd_first = [f for f in DATE_FORMATS if f.startswith("%d")]
-        DATE_FORMATS = mm_first + dd_first
+        year_first = [f for f in DATE_FORMATS if f.startswith("%Y")]
+        DATE_FORMATS = mm_first + year_first + dd_first
     # If ambiguous, keep original order (DD/MM first by default)
 
     # Try different patterns to find the right one for this export
