@@ -323,7 +323,7 @@ def create_message_types_chart(message_type_counts: pd.Series) -> go.Figure:
     # Sort by count descending
     data = message_type_counts.sort_values(ascending=False)
     
-    labels = data.index.tolist()
+    labels = [label.title() for label in data.index.tolist()]
     values = data.values.tolist()
     total = sum(values)
     
@@ -576,13 +576,28 @@ def create_calendar_heatmap(messages_by_date: pd.Series) -> go.Figure:
 
 
 def create_emoji_chart(top_emojis: list[tuple[str, int]], max_emojis: int = 10) -> go.Figure:
-    """Create a horizontal bar chart of top emojis with ranking labels."""
+    """Create a horizontal bar chart of top emojis with colored ranking labels."""
     emojis = [e[0] for e in top_emojis[:max_emojis]]
     counts = [e[1] for e in top_emojis[:max_emojis]]
+
+    # Colors for ranking numbers (matching medal theme + gradient for rest)
+    RANK_COLORS = {
+        1: "#FFD700",  # Gold
+        2: "#C0C0C0",  # Silver
+        3: "#CD7F32",  # Bronze
+        4: "#f43f5e",  # Rose
+        5: "#f59e0b",  # Amber
+        6: "#22c55e",  # Green
+        7: "#06b6d4",  # Cyan
+        8: "#8b5cf6",  # Violet
+        9: "#ec4899",  # Pink
+        10: "#14b8a6", # Teal
+    }
 
     # Create ranking labels with medals for top 3
     rankings = []
     rank_medals = []
+    rank_colors = []
     for i in range(1, len(emojis) + 1):
         if i == 1:
             rank = "1st"
@@ -598,12 +613,14 @@ def create_emoji_chart(top_emojis: list[tuple[str, int]], max_emojis: int = 10) 
             medal = f"#{i}"
         rankings.append(rank)
         rank_medals.append(medal)
+        rank_colors.append(RANK_COLORS.get(i, COLORS["text_muted"]))
 
     # Reverse for horizontal bar (bottom to top = 10th to 1st)
     emojis = emojis[::-1]
     counts = counts[::-1]
     rankings = rankings[::-1]
     rank_medals = rank_medals[::-1]
+    rank_colors = rank_colors[::-1]
 
     # Create gradient based on position (lighter at bottom, brighter at top)
     n = len(emojis)
@@ -612,8 +629,8 @@ def create_emoji_chart(top_emojis: list[tuple[str, int]], max_emojis: int = 10) 
         for i in range(n)
     ]
 
-    # Create y-axis labels with medal/rank and emoji (e.g., "🥇 🔥")
-    y_labels = [f"{medal} {emoji}" for emoji, medal in zip(emojis, rank_medals)]
+    # Create y-axis labels with just emojis (ranks will be added via annotations)
+    y_labels = list(range(n))  # Use numeric positions for precise annotation placement
 
     fig = go.Figure()
 
@@ -632,6 +649,21 @@ def create_emoji_chart(top_emojis: list[tuple[str, int]], max_emojis: int = 10) 
         )
     )
 
+    # Add colored annotations for rankings
+    annotations = []
+    for i, (medal, emoji, color) in enumerate(zip(rank_medals, emojis, rank_colors)):
+        annotations.append({
+            "x": 0,
+            "y": i,
+            "xref": "paper",
+            "yref": "y",
+            "text": f"<b>{medal}</b> {emoji}",
+            "showarrow": False,
+            "font": {"size": 16, "color": color},
+            "xanchor": "right",
+            "xshift": -10,
+        })
+
     layout = get_modern_layout(
         title="",  # No title - will be added in HTML
         xaxis_title="Count",
@@ -640,8 +672,10 @@ def create_emoji_chart(top_emojis: list[tuple[str, int]], max_emojis: int = 10) 
         show_legend=False,
     )
     layout["yaxis"]["tickfont"] = {"size": 16}
+    layout["yaxis"]["showticklabels"] = False  # Hide numeric y labels
     layout["margin"]["l"] = 90
     layout["margin"]["t"] = 30
+    layout["annotations"] = annotations
 
     fig.update_layout(**layout)
 
