@@ -246,11 +246,15 @@ def generate_pdf_report(
         loop = None
 
     if loop is not None:
-        # Running inside an existing event loop (e.g., Jupyter)
+        # Running inside an existing event loop (e.g., Jupyter/Colab)
+        # Use nest_asyncio to allow nested async calls
         import nest_asyncio
         nest_asyncio.apply()
-
-    return asyncio.run(_generate_pdf())
+        # Use the existing loop instead of creating a new one
+        return loop.run_until_complete(_generate_pdf())
+    else:
+        # No existing loop - create a new one (normal CLI usage)
+        return asyncio.run(_generate_pdf())
 
 
 def generate_full_report(
