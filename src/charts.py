@@ -524,7 +524,7 @@ def create_calendar_heatmap(messages_by_date: pd.Series) -> go.Figure:
         df,
         x="date",
         y="value",
-        years_title=True,
+        years_title=False,
         gap=5,  # Increased gap for better visual separation
         name="Messages",
         month_lines_width=2,
