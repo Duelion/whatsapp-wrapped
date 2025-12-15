@@ -24,8 +24,11 @@
 
 ---
 
-## ✨ Features
+<p align="center">
+  <img src=".github/assets/hero_image.png" alt="WhatsApp Wrapped Logo" width="700">
+</p>
 
+## ✨ Features
 - **📈 Rich Analytics**: Message counts, activity patterns, emoji usage, and more
 - **🎨 Beautiful Visualizations**: Interactive Plotly charts with a modern dark theme
 - **👥 User Insights**: Top contributors, activity sparklines, hourly patterns
