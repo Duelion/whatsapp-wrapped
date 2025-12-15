@@ -16,6 +16,8 @@
   </a>
 </p>
 
+**[🔗 View Live Sample Report](https://duelion.github.io/whatsapp-wrapped/sample_report.html)** - See what your report will look like!
+
 ---
 
 ## ✨ Features
@@ -121,8 +123,6 @@ Options:
 ```
 
 ## 📊 Example Output
-
-**[🔗 View Live Sample Report](https://htmlpreview.github.io/?https://raw.githubusercontent.com/Duelion/whatsapp-wrapped/main/.github/assets/sample_report.html)** - See what your report will look like!
 
 The report includes:
 
