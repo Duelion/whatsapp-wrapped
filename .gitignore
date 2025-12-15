@@ -14,6 +14,8 @@ data/processed/*.pkl
 # Generated Output Files (reports)
 /*.html
 /*.pdf
+# Exception: Allow the sample report in assets
+!assets/sample_report.html
 output/**/*.html
 output/**/*.pdf
 output/**/*.png
