@@ -106,3 +106,4 @@ uv sync
 - The project requires Python 3.10 or higher
 
 
+

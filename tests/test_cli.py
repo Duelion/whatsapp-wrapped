@@ -197,3 +197,4 @@ def test_multiple_options_combined(chat_file_path, tmp_path):
         assert len(html_files) == 1
 
 
+
