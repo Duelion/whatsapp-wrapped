@@ -5,20 +5,105 @@ Main entry point for generating HTML and PDF reports from WhatsApp chat exports.
 """
 
 import argparse
+import asyncio
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
 
+import nest_asyncio
 from jinja2 import Environment, FileSystemLoader
 
-from .analytics import analyze_chat
-from .charts import ChartCollection
+from .analytics import analyze_chat, calculate_badges, format_hour, get_hour_emoji
+from .charts import (
+    ChartCollection,
+    chart_to_html,
+    create_user_hourly_sparkline,
+    create_user_sparkline,
+)
 from .parser import parse_whatsapp_export
 
 
 def get_template_dir() -> Path:
     """Get the path to the templates directory."""
     return Path(__file__).parent / "templates"
+
+
+def _generate_report_data(
+    chat_file: str | Path,
+    year_filter: int | None = None,
+    min_messages: int = 2,
+    quiet: bool = False,
+) -> tuple:
+    """
+    Parse chat and generate all analytics, charts, and template data.
+
+    Returns:
+        Tuple of (metadata, analytics, charts_html, user_sparklines,
+                  user_hourly_sparklines, user_badges, formatted_hour, hour_emoji)
+    """
+    chat_file = Path(chat_file)
+
+    if not quiet:
+        print(f"[*] Loading chat file: {chat_file.name}")
+
+    # Parse the chat
+    df, metadata = parse_whatsapp_export(
+        chat_file,
+        filter_system=True,
+        min_messages=min_messages,
+        year_filter=year_filter,
+    )
+
+    if not quiet:
+        print(f"[+] Parsed {len(df)} messages from {metadata.total_members} members")
+
+    # Run analytics
+    if not quiet:
+        print("[*] Running analytics...")
+    analytics = analyze_chat(df)
+
+    # Generate charts
+    if not quiet:
+        print("[*] Generating charts...")
+    chart_collection = ChartCollection(analytics)
+    charts_html = chart_collection.to_html_dict(include_plotlyjs_first=True)
+
+    # Generate user sparklines
+    if not quiet:
+        print("[*] Generating user sparklines...")
+    user_sparklines = {}
+    user_hourly_sparklines = {}
+    for user_stat in analytics.user_stats:
+        sparkline_fig = create_user_sparkline(user_stat.daily_activity, user_stat.name)
+        user_sparklines[user_stat.name] = chart_to_html(sparkline_fig, include_plotlyjs=False)
+
+        hourly_sparkline_fig = create_user_hourly_sparkline(
+            user_stat.hourly_activity, user_stat.name
+        )
+        user_hourly_sparklines[user_stat.name] = chart_to_html(
+            hourly_sparkline_fig, include_plotlyjs=False
+        )
+
+    # Calculate user badges
+    if not quiet:
+        print("[*] Calculating achievement badges...")
+    user_badges = calculate_badges(analytics.user_stats)
+
+    # Format peak hour data
+    formatted_hour = format_hour(analytics.most_active_hour)
+    hour_emoji = get_hour_emoji(analytics.most_active_hour)
+
+    return (
+        metadata,
+        analytics,
+        charts_html,
+        user_sparklines,
+        user_hourly_sparklines,
+        user_badges,
+        formatted_hour,
+        hour_emoji,
+    )
 
 
 def generate_html_report(
@@ -45,60 +130,25 @@ def generate_html_report(
     """
     chat_file = Path(chat_file)
 
-    if not quiet:
-        print(f"[*] Loading chat file: {chat_file.name}")
-
-    # Parse the chat
-    df, metadata = parse_whatsapp_export(
-        chat_file,
-        filter_system=True,
-        min_messages=min_messages,
-        year_filter=year_filter,
-    )
-
-    print(f"[+] Parsed {len(df)} messages from {metadata.total_members} members")
-
-    # Run analytics
-    print("[*] Running analytics...")
-    analytics = analyze_chat(df)
-
-    # Generate charts
-    print("[*] Generating charts...")
-    chart_collection = ChartCollection(analytics)
-    charts_html = chart_collection.to_html_dict(include_plotlyjs_first=True)  # top_users loads Plotly
-    
-    # Generate user sparklines
-    print("[*] Generating user sparklines...")
-    from .charts import create_user_sparkline, create_user_hourly_sparkline, chart_to_html
-    user_sparklines = {}
-    user_hourly_sparklines = {}
-    for user_stat in analytics.user_stats:
-        # Yearly activity sparkline - Plotly already loaded by top_users chart
-        sparkline_fig = create_user_sparkline(user_stat.daily_activity, user_stat.name)
-        user_sparklines[user_stat.name] = chart_to_html(sparkline_fig, include_plotlyjs=False)
-        
-        # Hourly pattern sparkline
-        hourly_sparkline_fig = create_user_hourly_sparkline(user_stat.hourly_activity, user_stat.name)
-        user_hourly_sparklines[user_stat.name] = chart_to_html(hourly_sparkline_fig, include_plotlyjs=False)
-
-    # Calculate user badges
-    if not quiet:
-        print("[*] Calculating achievement badges...")
-    from .analytics import calculate_badges
-    user_badges = calculate_badges(analytics.user_stats)
+    # Generate all report data
+    (
+        metadata,
+        analytics,
+        charts_html,
+        user_sparklines,
+        user_hourly_sparklines,
+        user_badges,
+        formatted_hour,
+        hour_emoji,
+    ) = _generate_report_data(chat_file, year_filter, min_messages, quiet)
 
     # Set up Jinja2 environment
     template_dir = get_template_dir()
     env = Environment(
         loader=FileSystemLoader(template_dir),
-        autoescape=False,  # We're handling HTML ourselves
+        autoescape=False,
     )
     template = env.get_template("report.html")
-
-    # Format peak hour data
-    from .analytics import format_hour, get_hour_emoji
-    formatted_hour = format_hour(analytics.most_active_hour)
-    hour_emoji = get_hour_emoji(analytics.most_active_hour)
 
     # Render template
     if not quiet:
@@ -117,11 +167,7 @@ def generate_html_report(
 
     # Determine output path
     if output_path is None:
-        # Default to current working directory
-        if report_name:
-            stem = report_name.replace(" ", "_")
-        else:
-            stem = chat_file.stem.replace(" ", "_")
+        stem = report_name.replace(" ", "_") if report_name else chat_file.stem.replace(" ", "_")
         output_path = Path.cwd() / f"{stem}_report.html"
     else:
         output_path = Path(output_path)
@@ -155,8 +201,6 @@ def generate_static_html(
     Returns:
         Path to the generated static HTML file
     """
-    import asyncio
-    import re
 
     async def _generate_static() -> Path:
         try:
@@ -251,7 +295,6 @@ def generate_static_html(
     if loop is not None:
         # Running inside an existing event loop (e.g., Jupyter/Colab)
         # Use nest_asyncio to allow nested async calls
-        import nest_asyncio
         nest_asyncio.apply()
         # Use the existing loop instead of creating a new one
         return loop.run_until_complete(_generate_static())
@@ -288,51 +331,17 @@ def generate_full_report(
     """
     chat_file = Path(chat_file)
 
-    if not quiet:
-        print(f"[*] Loading chat file: {chat_file.name}")
-
-    # Parse the chat
-    df, metadata = parse_whatsapp_export(
-        chat_file,
-        filter_system=True,
-        min_messages=min_messages,
-        year_filter=year_filter,
-    )
-
-    if not quiet:
-        print(f"[+] Parsed {len(df)} messages from {metadata.total_members} members")
-
-    # Run analytics
-    if not quiet:
-        print("[*] Running analytics...")
-    analytics = analyze_chat(df)
-
-    # Generate charts
-    if not quiet:
-        print("[*] Generating charts...")
-    chart_collection = ChartCollection(analytics)
-    charts_html = chart_collection.to_html_dict(include_plotlyjs_first=True)  # top_users loads Plotly
-    
-    # Generate user sparklines
-    if not quiet:
-        print("[*] Generating user sparklines...")
-    from .charts import create_user_sparkline, create_user_hourly_sparkline, chart_to_html
-    user_sparklines = {}
-    user_hourly_sparklines = {}
-    for user_stat in analytics.user_stats:
-        # Yearly activity sparkline - Plotly already loaded by top_users chart
-        sparkline_fig = create_user_sparkline(user_stat.daily_activity, user_stat.name)
-        user_sparklines[user_stat.name] = chart_to_html(sparkline_fig, include_plotlyjs=False)
-        
-        # Hourly pattern sparkline
-        hourly_sparkline_fig = create_user_hourly_sparkline(user_stat.hourly_activity, user_stat.name)
-        user_hourly_sparklines[user_stat.name] = chart_to_html(hourly_sparkline_fig, include_plotlyjs=False)
-
-    # Calculate user badges
-    if not quiet:
-        print("[*] Calculating achievement badges...")
-    from .analytics import calculate_badges
-    user_badges = calculate_badges(analytics.user_stats)
+    # Generate all report data
+    (
+        metadata,
+        analytics,
+        charts_html,
+        user_sparklines,
+        user_hourly_sparklines,
+        user_badges,
+        formatted_hour,
+        hour_emoji,
+    ) = _generate_report_data(chat_file, year_filter, min_messages, quiet)
 
     # Set up Jinja2 environment
     template_dir = get_template_dir()
@@ -344,23 +353,14 @@ def generate_full_report(
 
     # Determine output paths
     if output_dir is None:
-        # Default to current working directory
         output_dir = Path.cwd()
     else:
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-    if report_name:
-        stem = report_name.replace(" ", "_")
-    else:
-        stem = chat_file.stem.replace(" ", "_")
+    stem = report_name.replace(" ", "_") if report_name else chat_file.stem.replace(" ", "_")
     html_path = output_dir / f"{stem}_report.html"
     static_path = output_dir / f"{stem}_report_static.html" if generate_static else None
-
-    # Format peak hour data
-    from .analytics import format_hour, get_hour_emoji
-    formatted_hour = format_hour(analytics.most_active_hour)
-    hour_emoji = get_hour_emoji(analytics.most_active_hour)
 
     # Render HTML template
     if not quiet:
@@ -403,7 +403,7 @@ def generate_full_report(
 def main():
     """Command-line interface for the report generator."""
     from . import __version__
-    
+
     parser = argparse.ArgumentParser(
         description="Generate WhatsApp Wrapped reports",
         formatter_class=argparse.RawDescriptionHelpFormatter,

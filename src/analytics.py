@@ -5,9 +5,14 @@ Provides comprehensive analysis functions for WhatsApp chat data.
 Generates statistics, patterns, and insights for the report.
 """
 
+import contextlib
+import math
+import re
 from dataclasses import dataclass
+from datetime import datetime
 
 import pandas as pd
+from stop_words import get_stop_words
 
 
 @dataclass
@@ -74,40 +79,38 @@ class ChatAnalytics:
 
 def extract_emojis(text: str) -> list[str]:
     """Extract all emojis from a text string using Unicode regex patterns."""
-    import re
-    
     if pd.isna(text):
         return []
-    
+
     # Comprehensive emoji regex pattern covering:
     # - Emoticons, symbols, pictographs, transport, maps, flags
     # - Skin tone modifiers, ZWJ sequences, variation selectors
     emoji_pattern = re.compile(
         "["
-        "\U0001F600-\U0001F64F"  # Emoticons
-        "\U0001F300-\U0001F5FF"  # Misc Symbols and Pictographs
-        "\U0001F680-\U0001F6FF"  # Transport and Map
-        "\U0001F700-\U0001F77F"  # Alchemical Symbols
-        "\U0001F780-\U0001F7FF"  # Geometric Shapes Extended
-        "\U0001F800-\U0001F8FF"  # Supplemental Arrows-C
-        "\U0001F900-\U0001F9FF"  # Supplemental Symbols and Pictographs
-        "\U0001FA00-\U0001FA6F"  # Chess Symbols
-        "\U0001FA70-\U0001FAFF"  # Symbols and Pictographs Extended-A
-        "\U00002702-\U000027B0"  # Dingbats
-        "\U000024C2-\U0001F251"  # Enclosed characters
-        "\U0001F1E0-\U0001F1FF"  # Flags (iOS)
-        "\U00002600-\U000026FF"  # Misc symbols (sun, moon, etc)
-        "\U00002700-\U000027BF"  # Dingbats
-        "\U0000FE00-\U0000FE0F"  # Variation Selectors
-        "\U0001F000-\U0001F02F"  # Mahjong Tiles
-        "\U0001F0A0-\U0001F0FF"  # Playing Cards
+        "\U0001f600-\U0001f64f"  # Emoticons
+        "\U0001f300-\U0001f5ff"  # Misc Symbols and Pictographs
+        "\U0001f680-\U0001f6ff"  # Transport and Map
+        "\U0001f700-\U0001f77f"  # Alchemical Symbols
+        "\U0001f780-\U0001f7ff"  # Geometric Shapes Extended
+        "\U0001f800-\U0001f8ff"  # Supplemental Arrows-C
+        "\U0001f900-\U0001f9ff"  # Supplemental Symbols and Pictographs
+        "\U0001fa00-\U0001fa6f"  # Chess Symbols
+        "\U0001fa70-\U0001faff"  # Symbols and Pictographs Extended-A
+        "\U00002702-\U000027b0"  # Dingbats
+        "\U000024c2-\U0001f251"  # Enclosed characters
+        "\U0001f1e0-\U0001f1ff"  # Flags (iOS)
+        "\U00002600-\U000026ff"  # Misc symbols (sun, moon, etc)
+        "\U00002700-\U000027bf"  # Dingbats
+        "\U0000fe00-\U0000fe0f"  # Variation Selectors
+        "\U0001f000-\U0001f02f"  # Mahjong Tiles
+        "\U0001f0a0-\U0001f0ff"  # Playing Cards
         "]+",
-        flags=re.UNICODE
+        flags=re.UNICODE,
     )
-    
+
     # Find all emoji matches
     matches = emoji_pattern.findall(str(text))
-    
+
     # Split compound emojis (like flags or ZWJ sequences) into individual base emojis
     # But keep them together if they form a single visual emoji
     result = []
@@ -122,11 +125,11 @@ def extract_emojis(text: str) -> list[str]:
             while i + 1 < len(match):
                 next_char = match[i + 1]
                 # Variation selectors (FE0E, FE0F) and skin tone modifiers
-                if '\uFE00' <= next_char <= '\uFE0F' or '\U0001F3FB' <= next_char <= '\U0001F3FF':
+                if "\ufe00" <= next_char <= "\ufe0f" or "\U0001f3fb" <= next_char <= "\U0001f3ff":
                     emoji += next_char
                     i += 1
                 # Zero Width Joiner sequences
-                elif next_char == '\u200D':
+                elif next_char == "\u200d":
                     # Include ZWJ and the next character(s)
                     emoji += next_char
                     i += 1
@@ -137,130 +140,192 @@ def extract_emojis(text: str) -> list[str]:
                     break
             result.append(emoji)
             i += 1
-    
+
     return result
 
 
 def extract_word_frequencies(df: pd.DataFrame, min_word_length: int = 3) -> pd.Series:
     """
     Extract word frequencies from all messages for word cloud generation.
-    
+
     Uses multilingual stopwords and filters out common platform junk.
-    
+
     Args:
         df: DataFrame with 'message' column
         min_word_length: Minimum word length to include (default: 3)
-    
+
     Returns:
         pd.Series with words as index and counts as values, sorted descending
     """
-    import re
-    from stop_words import get_stop_words
-    
     # Build combined stopwords from multiple languages
-    LANGUAGES = [
-        "english", "spanish", "portuguese", "french", "german",
-        "italian", "dutch", "russian", "turkish", "arabic"
+    languages = [
+        "english",
+        "spanish",
+        "portuguese",
+        "french",
+        "german",
+        "italian",
+        "dutch",
+        "russian",
+        "turkish",
+        "arabic",
     ]
-    
+
     stopwords = set()
-    for lang in LANGUAGES:
-        try:
+    for lang in languages:
+        # Skip if language not available
+        with contextlib.suppress(Exception):
             stopwords.update(get_stop_words(lang))
-        except Exception:
-            # Skip if language not available
-            pass
-    
+
     # Add common platform junk and WhatsApp-specific terms
-    stopwords.update({
-        "rt", "https", "http", "amp", "www", "com",
-        "omitted", "media", "image", "video", "audio", "sticker",
-        "deleted", "message", "attached", "gif", "document", "edited"
-    })
-    
+    stopwords.update(
+        {
+            "rt",
+            "https",
+            "http",
+            "amp",
+            "www",
+            "com",
+            "omitted",
+            "media",
+            "image",
+            "video",
+            "audio",
+            "sticker",
+            "deleted",
+            "message",
+            "attached",
+            "gif",
+            "document",
+            "edited",
+        }
+    )
+
     # Add laughing expressions in multiple languages
     # These often dominate word clouds and aren't meaningful content
     laughing_bases = set()
-    
+
     # Generate all repeat combinations for common laugh syllables
     # This catches ja, jaja, jajaja... and jaj, jajaj, jajajaj... etc.
     laugh_syllables = [
         # Spanish/Portuguese
-        "ja", "je", "ji", "jo",
-        "jaj", "jej", "jij",
-        "aja", "aje", "aji",
+        "ja",
+        "je",
+        "ji",
+        "jo",
+        "jaj",
+        "jej",
+        "jij",
+        "aja",
+        "aje",
+        "aji",
         # English
-        "ha", "he", "hi", "ho",
-        "hah", "heh", "hih",
-        "aha", "ahe", "ahi",
+        "ha",
+        "he",
+        "hi",
+        "ho",
+        "hah",
+        "heh",
+        "hih",
+        "aha",
+        "ahe",
+        "ahi",
         # Russian (transliterated)
-        "xa", "xe", "xi",
-        "xax", "xex",
+        "xa",
+        "xe",
+        "xi",
+        "xax",
+        "xex",
         "axa",
         # German
-        "hö", "höh",
+        "hö",
+        "höh",
         # Portuguese (Brazil)
         "rs",
         # Indonesian
         "wk",
         # Turkish
-        "sj", "sjs",
+        "sj",
+        "sjs",
         # Generic
-        "ah", "eh", "ih", "oh", "uh",
+        "ah",
+        "eh",
+        "ih",
+        "oh",
+        "uh",
     ]
-    
+
     for base in laugh_syllables:
         for repeat in range(1, 8):
             laughing_bases.add(base * repeat)
-    
+
     # Single character repeats (k for Brazilian, h for Arabic, etc.)
     for char in ["k", "h", "j", "w", "x", "5"]:
         for i in range(2, 12):
             laughing_bases.add(char * i)
-    
+
     # Korean (can't repeat easily, add manually)
     laughing_bases.update(["ㅋ" * i for i in range(2, 10)])
     laughing_bases.update(["ㅎ" * i for i in range(2, 10)])
-    
+
     # Common standalone expressions
-    laughing_bases.update([
-        # English internet slang
-        "lol", "lmao", "lmfao", "rofl", "roflmao", "lolol", "lololol",
-        "xd", "xdd", "xddd", "xdddd",
-        # French
-        "mdr", "ptdr", "xptdr", "mdrr", "mdrrr",
-        # Keyboard mashing
-        "asd", "asdf", "asdasd", "asdas", "asdfgh",
-        # Thai (5 = "ha" sound)
-        "555", "5555", "55555", "555555",
-    ])
-    
+    laughing_bases.update(
+        [
+            # English internet slang
+            "lol",
+            "lmao",
+            "lmfao",
+            "rofl",
+            "roflmao",
+            "lolol",
+            "lololol",
+            "xd",
+            "xdd",
+            "xddd",
+            "xdddd",
+            # French
+            "mdr",
+            "ptdr",
+            "xptdr",
+            "mdrr",
+            "mdrrr",
+            # Keyboard mashing
+            "asd",
+            "asdf",
+            "asdasd",
+            "asdas",
+            "asdfgh",
+            # Thai (5 = "ha" sound)
+            "555",
+            "5555",
+            "55555",
+            "555555",
+        ]
+    )
+
     stopwords.update(laughing_bases)
-    
+
     # Unicode-aware regex for letters only (no digits, no punctuation)
-    TOKEN_RE = re.compile(r"[^\W\d_]+", re.UNICODE)
-    
+    token_re = re.compile(r"[^\W\d_]+", re.UNICODE)
+
     # Collect all words from text messages only
     all_words = []
     text_messages = df[df["message_type"] == "text"]["message"]
-    
+
     for msg in text_messages:
         if pd.isna(msg):
             continue
         # Tokenize and filter
-        tokens = TOKEN_RE.findall(str(msg).lower())
-        filtered = [
-            t for t in tokens 
-            if len(t) >= min_word_length and t not in stopwords
-        ]
+        tokens = token_re.findall(str(msg).lower())
+        filtered = [t for t in tokens if len(t) >= min_word_length and t not in stopwords]
         all_words.extend(filtered)
-    
+
     # Create frequency Series using pandas (consistent with emoji frequency code)
     if not all_words:
         return pd.Series(dtype=int)
-    
+
     word_freq = pd.Series(all_words).value_counts()
-    
+
     return word_freq
 
 
@@ -276,7 +341,9 @@ def get_word_count(text: str) -> int:
     return len(words)
 
 
-def calculate_user_stats(df: pd.DataFrame, user_name: str, date_range: pd.DatetimeIndex = None) -> UserStats:
+def calculate_user_stats(
+    df: pd.DataFrame, user_name: str, date_range: pd.DatetimeIndex = None
+) -> UserStats:
     """Calculate comprehensive statistics for a single user."""
     user_df = df[df["name"] == user_name].copy()
 
@@ -302,13 +369,10 @@ def calculate_user_stats(df: pd.DataFrame, user_name: str, date_range: pd.Dateti
 
     # Daily activity for sparkline - normalized to full date range
     daily_activity = user_df.groupby(user_df["timestamp"].dt.date).size()
-    
+
     # If date_range is provided, reindex to fill the entire range with 0s
     if date_range is not None:
         daily_activity = daily_activity.reindex(date_range, fill_value=0)
-
-    # Silence and streak analysis
-    (user_df.set_index("timestamp").resample("D").size().reset_index(name="count"))
 
     # Calculate longest silence (days between messages)
     message_dates = user_df["timestamp"].dt.date.unique()
@@ -386,7 +450,7 @@ def analyze_chat(df: pd.DataFrame) -> ChatAnalytics:
     date_range = df["timestamp"].max() - df["timestamp"].min()
     num_days = max(date_range.days, 1)
     messages_per_day = round(total_messages / num_days, 1)
-    
+
     # Calculate total words across all messages
     df["word_count"] = df["message"].apply(get_word_count)
     total_words = int(df["word_count"].sum())
@@ -411,7 +475,7 @@ def analyze_chat(df: pd.DataFrame) -> ChatAnalytics:
     # Create full date range for normalized sparklines
     min_date = df["timestamp"].min().date()
     max_date = df["timestamp"].max().date()
-    full_date_range = pd.date_range(start=min_date, end=max_date, freq='D').date
+    full_date_range = pd.date_range(start=min_date, end=max_date, freq="D").date
 
     # User statistics with normalized date range
     user_names = df["name"].unique()
@@ -459,17 +523,16 @@ def analyze_chat(df: pd.DataFrame) -> ChatAnalytics:
     )
     daily_stats["score"] = daily_stats["messages"] * daily_stats["participants"]
     best_day_idx = daily_stats["score"].idxmax()
-    
+
     # Format date as human-readable
-    from datetime import datetime
     formatted_date = datetime.strptime(str(best_day_idx), "%Y-%m-%d").strftime("%B %d, %Y")
-    
+
     longest_conversation = {
         "date": formatted_date,
         "messages": int(daily_stats.loc[best_day_idx, "messages"]),
         "participants": int(daily_stats.loc[best_day_idx, "participants"]),
     }
-    
+
     # Total stickers
     total_stickers = int(message_type_counts.get("sticker", 0))
 
@@ -620,26 +683,24 @@ BADGE_DEFINITIONS = {
 def calculate_badges(user_stats: list[UserStats]) -> dict[str, list[dict]]:
     """
     Calculate achievement badges for users based on their stats.
-    
+
     Returns a dict mapping username to list of badge dicts with:
     - badge_id: the badge identifier
     - emoji: the badge emoji
     - label: the badge label
     - detail: specific achievement detail
-    
+
     Args:
         user_stats: List of UserStats objects
-    
+
     Returns:
         Dict mapping username to list of earned badges
     """
-    import math
-    
     if not user_stats:
         return {}
-    
+
     badges_by_user = {user.name: [] for user in user_stats}
-    
+
     def _is_valid_value(val, threshold):
         """Check if value is valid (not None, not NaN, above threshold)."""
         if val is None:
@@ -647,157 +708,149 @@ def calculate_badges(user_stats: list[UserStats]) -> dict[str, list[dict]]:
         if isinstance(val, float) and math.isnan(val):
             return False
         return val > threshold
-    
+
     # Helper to find max value user(s) for a metric
     def award_max_badge(badge_id: str, metric_func, detail_func=None, min_value=0):
         """Award badge to user(s) with maximum value for a metric."""
         values = [(user, metric_func(user)) for user in user_stats]
         # Filter out NaN values and values below threshold
         values = [(user, val) for user, val in values if _is_valid_value(val, min_value)]
-        
+
         if not values:
             return
-        
+
         max_value = max(val for _, val in values)
         winners = [user for user, val in values if val == max_value]
-        
+
         badge_def = BADGE_DEFINITIONS[badge_id]
         for winner in winners:
             detail = detail_func(winner, max_value) if detail_func else f"{max_value}"
-            badges_by_user[winner.name].append({
-                "badge_id": badge_id,
-                "emoji": badge_def["emoji"],
-                "label": badge_def["label"],
-                "detail": detail,
-            })
-    
+            badges_by_user[winner.name].append(
+                {
+                    "badge_id": badge_id,
+                    "emoji": badge_def["emoji"],
+                    "label": badge_def["label"],
+                    "detail": detail,
+                }
+            )
+
     # Helper to find min value user(s) for a metric
     def award_min_badge(badge_id: str, metric_func, detail_func=None, threshold=0):
         """Award badge to user(s) with minimum value for a metric."""
         values = [(user, metric_func(user)) for user in user_stats]
         # Filter out NaN values and values at or below threshold
         values = [(user, val) for user, val in values if _is_valid_value(val, threshold)]
-        
+
         if not values:
             return
-        
+
         min_val = min(val for _, val in values)
         winners = [user for user, val in values if val == min_val]
-        
+
         badge_def = BADGE_DEFINITIONS[badge_id]
         for winner in winners:
             detail = detail_func(winner, min_val) if detail_func else f"{min_val}"
-            badges_by_user[winner.name].append({
-                "badge_id": badge_id,
-                "emoji": badge_def["emoji"],
-                "label": badge_def["label"],
-                "detail": detail,
-            })
-    
+            badges_by_user[winner.name].append(
+                {
+                    "badge_id": badge_id,
+                    "emoji": badge_def["emoji"],
+                    "label": badge_def["label"],
+                    "detail": detail,
+                }
+            )
+
     # Streak Master - longest consecutive days active
     award_max_badge(
         "streak_master",
         lambda u: u.longest_streak_days,
         lambda u, v: f"{int(v)} consecutive days",
-        min_value=0
+        min_value=0,
     )
-    
+
     # Ghost - longest silence between messages
     award_max_badge(
-        "ghost",
-        lambda u: u.longest_silence_days,
-        lambda u, v: f"{int(v)} days silent",
-        min_value=0
+        "ghost", lambda u: u.longest_silence_days, lambda u, v: f"{int(v)} days silent", min_value=0
     )
-    
+
     # Night Owl - highest percentage of messages during night hours (0-6, 18-24)
     def night_percentage(user):
         night_hours = user.hourly_activity[list(range(0, 6)) + list(range(18, 24))].sum()
         total = user.hourly_activity.sum()
         return (night_hours / total * 100) if total > 0 else 0
-    
+
     award_max_badge(
-        "night_owl",
-        night_percentage,
-        lambda u, v: f"{int(v)}% night messages",
-        min_value=0
+        "night_owl", night_percentage, lambda u, v: f"{int(v)}% night messages", min_value=0
     )
-    
+
     # Early Bird - highest percentage of messages during morning hours (6-12)
     def morning_percentage(user):
         morning_hours = user.hourly_activity[list(range(6, 12))].sum()
         total = user.hourly_activity.sum()
         return (morning_hours / total * 100) if total > 0 else 0
-    
+
     award_max_badge(
-        "early_bird",
-        morning_percentage,
-        lambda u, v: f"{int(v)}% morning messages",
-        min_value=0
+        "early_bird", morning_percentage, lambda u, v: f"{int(v)}% morning messages", min_value=0
     )
-    
+
     # Emoji King - most emojis used
     award_max_badge(
-        "emoji_king",
-        lambda u: u.emoji_count,
-        lambda u, v: f"{int(v):,} emojis used",
-        min_value=0
+        "emoji_king", lambda u: u.emoji_count, lambda u, v: f"{int(v):,} emojis used", min_value=0
     )
-    
+
     # Shutterbug - most images shared
     award_max_badge(
         "shutterbug",
         lambda u: u.message_types.get("image", 0),
         lambda u, v: f"{int(v):,} images shared",
-        min_value=0
+        min_value=0,
     )
-    
+
     # Director - most videos shared
     award_max_badge(
         "director",
         lambda u: u.message_types.get("video", 0),
         lambda u, v: f"{int(v):,} videos shared",
-        min_value=0
+        min_value=0,
     )
-    
+
     # Sticker Maniac - most stickers sent
     award_max_badge(
         "sticker_maniac",
         lambda u: u.message_types.get("sticker", 0),
         lambda u, v: f"{int(v):,} stickers sent",
-        min_value=0
+        min_value=0,
     )
-    
+
     # Voice Actor - most audio/voice messages
     award_max_badge(
         "voice_actor",
         lambda u: u.message_types.get("audio", 0),
         lambda u, v: f"{int(v):,} voice messages",
-        min_value=0
+        min_value=0,
     )
-    
+
     # Link Sharer - most links shared
     award_max_badge(
         "link_sharer",
         lambda u: u.message_types.get("link", 0),
         lambda u, v: f"{int(v):,} links shared",
-        min_value=0
+        min_value=0,
     )
-    
+
     # Novelist - longest average message length
     award_max_badge(
         "novelist",
         lambda u: u.avg_message_length,
         lambda u, v: f"{int(v)} chars/message",
-        min_value=0
+        min_value=0,
     )
-    
+
     # Speedster - shortest average message length
     award_min_badge(
         "speedster",
         lambda u: u.avg_message_length,
         lambda u, v: f"{int(v)} chars/message",
-        threshold=0
+        threshold=0,
     )
-    
+
     return badges_by_user

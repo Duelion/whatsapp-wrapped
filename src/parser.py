@@ -183,35 +183,37 @@ def _load_from_txt(txt_path: Path) -> str:
 
 def _parse_timestamp(timestamp_str: str, date_formats: list[str] | None = None) -> datetime | None:
     """Try to parse a timestamp string using various formats.
-    
+
     Args:
         timestamp_str: The timestamp string to parse
         date_formats: List of date format strings to try. If None, uses DATE_FORMATS.
-    
+
     Returns:
         Parsed datetime object or None if parsing fails
     """
     if date_formats is None:
         date_formats = DATE_FORMATS
-    
+
     timestamp_str = timestamp_str.strip()
-    
+
     # Normalize AM/PM variations (e.g., "am" -> "AM", "11PM" -> "11 PM", "3:30 A.M." -> "3:30 AM")
     # Handle A.M./P.M. with periods first
-    timestamp_str = re.sub(r'([APap])\.([Mm])\.', r'\1\2', timestamp_str)  # A.M./P.M. -> AM/PM
-    timestamp_str = re.sub(r'(\d)([APap][Mm])', r'\1 \2', timestamp_str)  # Add space before AM/PM
-    timestamp_str = re.sub(r'\b([APap][Mm])\b', lambda m: m.group(1).upper(), timestamp_str)  # Uppercase AM/PM
-    
+    timestamp_str = re.sub(r"([APap])\.([Mm])\.", r"\1\2", timestamp_str)  # A.M./P.M. -> AM/PM
+    timestamp_str = re.sub(r"(\d)([APap][Mm])", r"\1 \2", timestamp_str)  # Add space before AM/PM
+    timestamp_str = re.sub(
+        r"\b([APap][Mm])\b", lambda m: m.group(1).upper(), timestamp_str
+    )  # Uppercase AM/PM
+
     # Normalize dot time separators to colons (e.g., "15.30.00" -> "15:30:00", Finnish/Baltic format)
     # Look for time pattern after comma or space: HH.MM.SS or HH.MM
     # Only replace dots that come after the date part (after comma or space)
-    if re.search(r'[,\s]\d{1,2}\.\d{2}', timestamp_str):
+    if re.search(r"[,\s]\d{1,2}\.\d{2}", timestamp_str):
         # Has dot time separator - replace dots with colons only in time part
-        parts = re.split(r'([,\s]+)', timestamp_str, maxsplit=1)
+        parts = re.split(r"([,\s]+)", timestamp_str, maxsplit=1)
         if len(parts) >= 3:
             # parts[0] = date, parts[1] = separator, parts[2] = time
             time_part = parts[2]
-            time_part = re.sub(r'\.', ':', time_part)  # Replace all dots in time with colons
+            time_part = re.sub(r"\.", ":", time_part)  # Replace all dots in time with colons
             timestamp_str = parts[0] + parts[1] + time_part
 
     for fmt in date_formats:
@@ -226,36 +228,36 @@ def _parse_timestamp(timestamp_str: str, date_formats: list[str] | None = None) 
 def _detect_date_order(raw_text: str) -> str:
     """
     Detect whether dates are in DD/MM or MM/DD format by analyzing the chat.
-    
+
     Returns:
         "DD/MM" if day-first format detected
-        "MM/DD" if month-first format detected  
+        "MM/DD" if month-first format detected
         "ambiguous" if cannot be determined
     """
     # Extract all date-like patterns
-    date_pattern = r'(\d{1,2})[-/\.](\d{1,2})[-/\.](\d{2,4})'
+    date_pattern = r"(\d{1,2})[-/\.](\d{1,2})[-/\.](\d{2,4})"
     matches = re.findall(date_pattern, raw_text)
-    
+
     has_first_over_12 = False
     has_second_over_12 = False
-    
-    for d1, d2, year in matches:
+
+    for d1, d2, _year in matches:
         d1_int = int(d1)
         d2_int = int(d2)
-        
+
         if d1_int > 12:
             has_first_over_12 = True
         if d2_int > 12:
             has_second_over_12 = True
-    
+
     # If first component > 12, it must be DD/MM
     if has_first_over_12 and not has_second_over_12:
         return "DD/MM"
-    
+
     # If second component > 12, it must be MM/DD
     if has_second_over_12 and not has_first_over_12:
         return "MM/DD"
-    
+
     # If both have values > 12, something is wrong (shouldn't happen)
     # If neither has values > 12, we can't determine
     return "ambiguous"
@@ -308,26 +310,25 @@ def parse_chat(raw_text: str) -> pd.DataFrame:
     # Split by newlines that start a new message (with timestamp)
     # Handle both \r\n and \n line endings
     raw_text = raw_text.replace("\r\n", "\n")
-    
+
     # Detect date order (DD/MM vs MM/DD) to prioritize correct formats
     date_order = _detect_date_order(raw_text)
-    
-    # Reorder DATE_FORMATS based on detected order
-    global DATE_FORMATS
-    original_formats = DATE_FORMATS.copy()
-    
+
+    # Create a local reordered copy of DATE_FORMATS based on detected order
+    date_formats_to_use = DATE_FORMATS.copy()
+
     if date_order == "DD/MM":
         # Prioritize DD/MM formats (those starting with %d), keep year-first and ISO formats
         dd_first = [f for f in DATE_FORMATS if f.startswith("%d")]
         mm_first = [f for f in DATE_FORMATS if f.startswith("%m")]
         year_first = [f for f in DATE_FORMATS if f.startswith("%Y")]
-        DATE_FORMATS = dd_first + year_first + mm_first
+        date_formats_to_use = dd_first + year_first + mm_first
     elif date_order == "MM/DD":
         # Prioritize MM/DD formats (those starting with %m), keep year-first and ISO formats
         mm_first = [f for f in DATE_FORMATS if f.startswith("%m")]
         dd_first = [f for f in DATE_FORMATS if f.startswith("%d")]
         year_first = [f for f in DATE_FORMATS if f.startswith("%Y")]
-        DATE_FORMATS = mm_first + year_first + dd_first
+        date_formats_to_use = mm_first + year_first + dd_first
     # If ambiguous, keep original order (DD/MM first by default)
 
     # Try different patterns to find the right one for this export
@@ -340,10 +341,10 @@ def parse_chat(raw_text: str) -> pd.DataFrame:
 
         for line in lines:
             # Strip Unicode direction marks (LRM/RLM) that can appear at line start
-            line = line.lstrip('\u200e\u200f')
-            
+            line = line.lstrip("\u200e\u200f")
+
             match = re.match(pattern, line)
-            
+
             # If user message pattern doesn't match, try system message pattern
             is_system = False
             if not match and pattern_idx < len(SYSTEM_MESSAGE_PATTERNS):
@@ -363,8 +364,8 @@ def parse_chat(raw_text: str) -> pd.DataFrame:
                 else:
                     # User message: timestamp, name, message
                     timestamp_str, name, message = match.groups()
-                    
-                timestamp = _parse_timestamp(timestamp_str)
+
+                timestamp = _parse_timestamp(timestamp_str, date_formats_to_use)
 
                 if timestamp:
                     current_message = {
@@ -387,9 +388,6 @@ def parse_chat(raw_text: str) -> pd.DataFrame:
         # If we found messages with this pattern, we're done
         if messages:
             break
-    
-    # Restore original DATE_FORMATS order for future calls
-    DATE_FORMATS = original_formats
 
     if not messages:
         raise ValueError(
@@ -456,10 +454,10 @@ def filter_bot_users(df: pd.DataFrame) -> pd.DataFrame:
         DataFrame with bot users removed
     """
     bot_names = ["Meta AI", "meta ai"]
-    
+
     # Filter out exact matches and case-insensitive matches
     mask = df["name"].str.lower().isin([name.lower() for name in bot_names])
-    
+
     return df[~mask].copy()
 
 
@@ -476,9 +474,9 @@ def get_chat_metadata(df: pd.DataFrame, filename: str = "chat") -> ChatMetadata:
     """
     # Clean filename - remove .zip extension and clean up common patterns
     clean_filename = filename
-    if clean_filename.endswith('.zip'):
+    if clean_filename.endswith(".zip"):
         clean_filename = clean_filename[:-4]
-    
+
     return ChatMetadata(
         filename=clean_filename,
         total_messages=len(df),
@@ -518,7 +516,7 @@ def parse_whatsapp_export(
     # Filter system messages
     if filter_system:
         df = filter_system_messages(df)
-    
+
     # Filter bot users (Meta AI, etc.)
     df = filter_bot_users(df)
 

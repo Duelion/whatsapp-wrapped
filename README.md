@@ -61,7 +61,12 @@ uv run whatsapp-wrapped your-chat.zip
 
 > 💡 Don't have `uv`? Install it: `curl -LsSf https://astral.sh/uv/install.sh | sh` (macOS/Linux) or `irm https://astral.sh/uv/install.ps1 | iex` (Windows)
 
-Run `uv run whatsapp-wrapped --help` for all options (year filter, static HTML, and more).
+**Available Options:**
+- `--year 2024` - Filter messages to a specific year
+- `--static` - Generate mobile-friendly static HTML
+- `--output reports/` - Custom output directory
+- `--quiet` - Suppress progress messages
+- `--help` - Show all available options
 
 ---
 

@@ -1,16 +1,1 @@
 """Tests for WhatsApp Wrapped."""
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

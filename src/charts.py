@@ -4,10 +4,13 @@ WhatsApp Chat Charts Module
 Generates Plotly charts with a modern dark aesthetic.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import plotly.graph_objects as go
+
+if TYPE_CHECKING:
+    from .analytics import ChatAnalytics
 
 # Modern dark color palette
 COLORS = {
@@ -15,16 +18,13 @@ COLORS = {
     "background": "#09090b",
     "paper": "#18181b",
     "surface": "#1f1f23",
-    
     # Borders & Grid
     "grid": "#27272a",
     "border": "#3f3f46",
-    
     # Text
     "text": "#fafafa",
     "text_secondary": "#a1a1aa",
     "text_muted": "#71717a",
-    
     # Accents
     "blue": "#3b82f6",
     "green": "#22c55e",
@@ -58,7 +58,7 @@ def get_modern_layout(
     yaxis_title: str = "",
     height: int = 400,
     show_legend: bool = True,
-) -> dict[str, Any]:
+) -> dict:
     """Get the base Plotly layout with modern dark aesthetic."""
     return {
         "template": "plotly_dark",
@@ -134,7 +134,7 @@ def create_messages_by_hour_chart(messages_by_hour: pd.Series) -> go.Figure:
     """Create a bar chart showing message distribution by hour with gradient colors."""
     hours = list(range(24))
     values = [messages_by_hour.get(h, 0) for h in hours]
-    
+
     total = sum(values) if values else 1
     percentages = [(v / total * 100) for v in values]
 
@@ -169,9 +169,7 @@ def create_messages_by_hour_chart(messages_by_hour: pd.Series) -> go.Figure:
     )
     layout["xaxis"]["tickmode"] = "array"
     layout["xaxis"]["tickvals"] = list(range(0, 24, 3))
-    layout["xaxis"]["ticktext"] = [
-        "12am", "3am", "6am", "9am", "12pm", "3pm", "6pm", "9pm"
-    ]
+    layout["xaxis"]["ticktext"] = ["12am", "3am", "6am", "9am", "12pm", "3pm", "6pm", "9pm"]
     layout["bargap"] = 0.15
 
     fig.update_layout(**layout)
@@ -184,7 +182,7 @@ def create_messages_by_weekday_chart(messages_by_weekday: pd.Series) -> go.Figur
     days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     short_days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     values = [messages_by_weekday.get(d, 0) for d in days]
-    
+
     total = sum(values) if values else 1
     percentages = [(v / total * 100) for v in values]
 
@@ -256,21 +254,21 @@ def create_timeline_chart(messages_by_date: pd.Series) -> go.Figure:
         height=350,
         show_legend=False,  # Single trace, no legend needed
     )
-    
+
     # Generate month ticks for the date range
     min_date = dates.min()
     max_date = dates.max()
-    
+
     # Create tick values for the 1st of each month in the range
     month_ticks = pd.date_range(
         start=min_date.replace(day=1),
         end=max_date,
-        freq="MS"  # Month Start
+        freq="MS",  # Month Start
     )
-    
+
     # Format as abbreviated month names (Jan, Feb, etc.)
     tick_labels = [d.strftime("%b") for d in month_ticks]
-    
+
     # Update x-axis with month ticks, slanted for readability
     layout["xaxis"]["tickmode"] = "array"
     layout["xaxis"]["tickvals"] = month_ticks
@@ -287,7 +285,7 @@ def create_top_users_chart(top_messagers: list[tuple[str, int]]) -> go.Figure:
     """Create a stylish horizontal bar chart with gradient colors."""
     users = [u[0] for u in top_messagers]
     counts = [u[1] for u in top_messagers]
-    
+
     total = sum(counts) if counts else 1
     percentages = [(c / total * 100) for c in counts]
 
@@ -297,7 +295,7 @@ def create_top_users_chart(top_messagers: list[tuple[str, int]]) -> go.Figure:
     percentages = percentages[::-1]
 
     n = len(users)
-    
+
     # Create gradient colors from blue to violet based on position
     colors = []
     for i in range(n):
@@ -319,7 +317,7 @@ def create_top_users_chart(top_messagers: list[tuple[str, int]]) -> go.Figure:
                 "color": colors,
                 "line": {"width": 0},
             },
-            text=[f"{c:,} ({p:.1f}%)" for c, p in zip(counts, percentages)],
+            text=[f"{c:,} ({p:.1f}%)" for c, p in zip(counts, percentages, strict=False)],
             textposition="outside",
             textfont={"color": COLORS["text_muted"], "size": 10},
             customdata=percentages,
@@ -347,14 +345,14 @@ def create_message_types_chart(message_type_counts: pd.Series) -> go.Figure:
     """Create a modern donut chart of message type distribution."""
     # Sort by count descending
     data = message_type_counts.sort_values(ascending=False)
-    
+
     labels = [label.title() for label in data.index.tolist()]
     values = data.values.tolist()
     total = sum(values)
-    
+
     # Calculate percentages for conditional display
     percentages = [(v / total * 100) for v in values]
-    
+
     # Create a vibrant color palette for different message types
     n = len(labels)
     colors = [
@@ -369,10 +367,10 @@ def create_message_types_chart(message_type_counts: pd.Series) -> go.Figure:
     while len(colors) < n:
         colors.extend(ACCENT_COLORS)
     colors = colors[:n]
-    
+
     # Pull effect for largest slice (emphasis)
     pull = [0.03 if i == 0 else 0 for i in range(n)]
-    
+
     # Custom text: only show percentage for slices > 5%
     text_labels = [f"{p:.1f}%" if p >= 5 else "" for p in percentages]
 
@@ -436,7 +434,7 @@ def create_hourly_heatmap(hourly_activity_by_user: pd.DataFrame, max_users: int 
 
     # Normalize per user for better visualization
     data_normalized = data.div(data.max(axis=1), axis=0).fillna(0)
-    
+
     # Create customdata with absolute values
     customdata = data.values
 
@@ -464,7 +462,7 @@ def create_hourly_heatmap(hourly_activity_by_user: pd.DataFrame, max_users: int 
     # Calculate height to maintain square cells
     # 24 hours * cell_size, where cell_size should match y-axis spacing
     height = max(300, 80 + 30 * len(top_users))  # Increased cell height for squares
-    
+
     layout = get_modern_layout(
         title="Activity by User & Hour",
         xaxis_title="Hour",
@@ -476,7 +474,7 @@ def create_hourly_heatmap(hourly_activity_by_user: pd.DataFrame, max_users: int 
     layout["xaxis"]["tickvals"] = list(range(0, 24, 3))
     layout["xaxis"]["ticktext"] = ["12am", "3am", "6am", "9am", "12pm", "3pm", "6pm", "9pm"]
     layout["margin"]["l"] = 120
-    
+
     # Force square cells
     layout["yaxis"]["scaleanchor"] = "x"
     layout["yaxis"]["scaleratio"] = 1
@@ -490,15 +488,13 @@ def create_monthly_chart(messages_by_month: pd.Series) -> go.Figure:
     """Create a bar chart showing messages by month."""
     months = messages_by_month.index.tolist()
     values = messages_by_month.values.tolist()
-    
+
     total = sum(values) if values else 1
     percentages = [(v / total * 100) for v in values]
 
     # Create gradient based on values
     max_val = max(values) if values else 1
-    colors = [
-        f"rgba(139, 92, 246, {0.4 + 0.6 * (v / max_val)})" for v in values
-    ]
+    colors = [f"rgba(139, 92, 246, {0.4 + 0.6 * (v / max_val)})" for v in values]
 
     fig = go.Figure()
 
@@ -530,19 +526,18 @@ def create_monthly_chart(messages_by_month: pd.Series) -> go.Figure:
 def create_calendar_heatmap(messages_by_date: pd.Series) -> go.Figure:
     """Create a calendar heatmap showing daily message activity in a calendar grid format."""
     from plotly_calplot import calplot
-    
+
     if len(messages_by_date) == 0:
         # Return empty figure if no data
         fig = go.Figure()
         fig.update_layout(**get_modern_layout(title="", height=290))
         return fig
-    
+
     # Prepare data as a DataFrame with date and value columns
-    df = pd.DataFrame({
-        'date': pd.to_datetime(messages_by_date.index),
-        'value': messages_by_date.values
-    })
-    
+    df = pd.DataFrame(
+        {"date": pd.to_datetime(messages_by_date.index), "value": messages_by_date.values}
+    )
+
     # Create the calendar heatmap using plotly-calplot
     # Optimized for single-year display
     fig = calplot(
@@ -565,7 +560,7 @@ def create_calendar_heatmap(messages_by_date: pd.Series) -> go.Figure:
         showscale=False,
         dark_theme=True,  # Enable dark theme if available
     )
-    
+
     # Apply dark theme styling to match other charts
     fig.update_layout(
         paper_bgcolor=COLORS["paper"],
@@ -584,10 +579,10 @@ def create_calendar_heatmap(messages_by_date: pd.Series) -> go.Figure:
             "font": {"color": COLORS["text"], "size": 12},
         },
     )
-    
+
     # Update all xaxis and yaxis to match dark theme with better readability
     for key in fig.layout:
-        if key.startswith('xaxis') or key.startswith('yaxis'):
+        if key.startswith("xaxis") or key.startswith("yaxis"):
             axis = fig.layout[key]
             if axis:
                 axis.update(
@@ -596,13 +591,13 @@ def create_calendar_heatmap(messages_by_date: pd.Series) -> go.Figure:
                     tickfont={"color": COLORS["text_secondary"], "size": 10},
                     title_font={"color": COLORS["text_secondary"], "size": 11},
                 )
-    
+
     # Customize hover template for cleaner tooltips
     for trace in fig.data:
-        if hasattr(trace, 'hovertemplate'):
+        if hasattr(trace, "hovertemplate"):
             # Replace the default ugly tooltip with a clean one
             trace.hovertemplate = "<b>%{x|%b %d}</b>: %{z} msgs<extra></extra>"
-    
+
     return fig
 
 
@@ -612,7 +607,7 @@ def create_emoji_chart(top_emojis: list[tuple[str, int]], max_emojis: int = 10) 
     counts = [e[1] for e in top_emojis[:max_emojis]]
 
     # Colors for ranking numbers (matching medal theme + gradient for rest)
-    RANK_COLORS = {
+    rank_colors_map = {
         1: "#FFD700",  # Gold
         2: "#C0C0C0",  # Silver
         3: "#CD7F32",  # Bronze
@@ -622,7 +617,7 @@ def create_emoji_chart(top_emojis: list[tuple[str, int]], max_emojis: int = 10) 
         7: "#06b6d4",  # Cyan
         8: "#8b5cf6",  # Violet
         9: "#ec4899",  # Pink
-        10: "#14b8a6", # Teal
+        10: "#14b8a6",  # Teal
     }
 
     # Create ranking labels with medals for top 3
@@ -644,7 +639,7 @@ def create_emoji_chart(top_emojis: list[tuple[str, int]], max_emojis: int = 10) 
             medal = f"#{i}"
         rankings.append(rank)
         rank_medals.append(medal)
-        rank_colors.append(RANK_COLORS.get(i, COLORS["text_muted"]))
+        rank_colors.append(rank_colors_map.get(i, COLORS["text_muted"]))
 
     # Reverse for horizontal bar (bottom to top = 10th to 1st)
     emojis = emojis[::-1]
@@ -655,10 +650,7 @@ def create_emoji_chart(top_emojis: list[tuple[str, int]], max_emojis: int = 10) 
 
     # Create gradient based on position (lighter at bottom, brighter at top)
     n = len(emojis)
-    colors = [
-        f"rgba(245, 158, 11, {0.4 + 0.6 * (i / max(n - 1, 1))})"
-        for i in range(n)
-    ]
+    colors = [f"rgba(245, 158, 11, {0.4 + 0.6 * (i / max(n - 1, 1))})" for i in range(n)]
 
     # Create y-axis labels with just emojis (ranks will be added via annotations)
     y_labels = list(range(n))  # Use numeric positions for precise annotation placement
@@ -676,24 +668,26 @@ def create_emoji_chart(top_emojis: list[tuple[str, int]], max_emojis: int = 10) 
             textposition="outside",
             textfont={"color": COLORS["text_muted"], "size": 11},
             hovertemplate="%{customdata[1]} %{customdata[0]}: %{x:,} uses<extra></extra>",
-            customdata=[[rank, emoji] for rank, emoji in zip(rankings, emojis)],
+            customdata=[[rank, emoji] for rank, emoji in zip(rankings, emojis, strict=False)],
         )
     )
 
     # Add colored annotations for rankings
     annotations = []
-    for i, (medal, emoji, color) in enumerate(zip(rank_medals, emojis, rank_colors)):
-        annotations.append({
-            "x": 0,
-            "y": i,
-            "xref": "paper",
-            "yref": "y",
-            "text": f"<b>{medal}</b> {emoji}",
-            "showarrow": False,
-            "font": {"size": 16, "color": color},
-            "xanchor": "right",
-            "xshift": -10,
-        })
+    for i, (medal, emoji, color) in enumerate(zip(rank_medals, emojis, rank_colors, strict=False)):
+        annotations.append(
+            {
+                "x": 0,
+                "y": i,
+                "xref": "paper",
+                "yref": "y",
+                "text": f"<b>{medal}</b> {emoji}",
+                "showarrow": False,
+                "font": {"size": 16, "color": color},
+                "xanchor": "right",
+                "xshift": -10,
+            }
+        )
 
     layout = get_modern_layout(
         title="",  # No title - will be added in HTML
@@ -718,15 +712,15 @@ def create_user_sparkline(daily_activity: pd.Series, user_name: str) -> go.Figur
     # Fill missing dates with 0
     if len(daily_activity) == 0:
         return go.Figure()
-    
+
     dates = pd.to_datetime(daily_activity.index)
     values = daily_activity.values
-    
+
     # Apply 3-day rolling average for smoothing
     rolling_avg = pd.Series(values).rolling(window=3, min_periods=1, center=True).mean()
-    
+
     fig = go.Figure()
-    
+
     fig.add_trace(
         go.Scatter(
             x=dates,
@@ -741,11 +735,11 @@ def create_user_sparkline(daily_activity: pd.Series, user_name: str) -> go.Figur
             hovertemplate="<b>%{x|%b %d}</b>: %{y:.0f} msgs<extra></extra>",
         )
     )
-    
+
     # Get start and end months for minimal x-axis labels
     start_month = dates.min().strftime("%b")
     end_month = dates.max().strftime("%b")
-    
+
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
@@ -770,7 +764,7 @@ def create_user_sparkline(daily_activity: pd.Series, user_name: str) -> go.Figur
         showlegend=False,
         hovermode="closest",
     )
-    
+
     return fig
 
 
@@ -778,18 +772,16 @@ def create_user_hourly_sparkline(hourly_activity: pd.Series, user_name: str) -> 
     """Create a minimal bar sparkline chart showing hourly activity pattern (0-23)."""
     if len(hourly_activity) == 0:
         return go.Figure()
-    
+
     hours = list(range(24))
     values = [hourly_activity.get(h, 0) for h in hours]
-    
+
     # Create gradient-like effect with varying opacity
     max_val = max(values) if max(values) > 0 else 1
-    colors = [
-        f"rgba(139, 92, 246, {0.3 + 0.7 * (v / max_val)})" for v in values
-    ]
-    
+    colors = [f"rgba(139, 92, 246, {0.3 + 0.7 * (v / max_val)})" for v in values]
+
     fig = go.Figure()
-    
+
     fig.add_trace(
         go.Bar(
             x=hours,
@@ -799,7 +791,7 @@ def create_user_hourly_sparkline(hourly_activity: pd.Series, user_name: str) -> 
             hovertemplate="<b>%{x}:00</b>: %{y} msgs<extra></extra>",
         )
     )
-    
+
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
@@ -824,7 +816,7 @@ def create_user_hourly_sparkline(hourly_activity: pd.Series, user_name: str) -> 
         showlegend=False,
         bargap=0.1,
     )
-    
+
     return fig
 
 
@@ -836,15 +828,15 @@ def create_wordcloud_chart(
 ) -> str:
     """
     Create a word cloud visualization as a base64-encoded PNG.
-    
+
     Uses the project's dark aesthetic with accent colors.
-    
+
     Args:
         word_frequencies: pd.Series with words as index, counts as values
         width: Image width in pixels
         height: Image height in pixels
         max_words: Maximum number of words to display
-    
+
     Returns:
         Base64-encoded PNG string (data URI format) or empty string if no data
     """
@@ -853,18 +845,18 @@ def create_wordcloud_chart(
     from io import BytesIO
 
     from wordcloud import WordCloud
-    
+
     if word_frequencies is None or len(word_frequencies) == 0:
         return ""
-    
+
     # Convert Series to dict for wordcloud
     freq_dict = word_frequencies.head(max_words * 2).to_dict()  # Get extra for filtering
-    
+
     if not freq_dict:
         return ""
-    
+
     # Accent colors from the theme (matching ACCENT_COLORS)
-    WORDCLOUD_COLORS = [
+    wordcloud_colors = [
         "#3b82f6",  # blue
         "#8b5cf6",  # violet
         "#06b6d4",  # cyan
@@ -872,11 +864,11 @@ def create_wordcloud_chart(
         "#22c55e",  # green
         "#f43f5e",  # rose
     ]
-    
+
     def color_func(word, font_size, position, orientation, random_state=None, **kwargs):
         """Custom color function using theme accent colors."""
-        return random.choice(WORDCLOUD_COLORS)
-    
+        return random.choice(wordcloud_colors)
+
     # Create word cloud with dark background
     wc = WordCloud(
         width=width,
@@ -891,23 +883,23 @@ def create_wordcloud_chart(
         margin=10,
         mode="RGB",
     )
-    
+
     # Generate the word cloud
     wc.generate_from_frequencies(freq_dict)
-    
+
     # Convert to base64 PNG
     buffer = BytesIO()
     wc.to_image().save(buffer, format="PNG", optimize=True)
     buffer.seek(0)
     img_base64 = base64.b64encode(buffer.read()).decode("utf-8")
-    
+
     return f"data:image/png;base64,{img_base64}"
 
 
 class ChartCollection:
     """Collection of all charts for a report."""
 
-    def __init__(self, analytics: Any):
+    def __init__(self, analytics: "ChatAnalytics"):
         """
         Generate all charts from analytics data.
 
@@ -952,7 +944,9 @@ class ChartCollection:
 
         # Word cloud is already a base64 data URI, wrap in img tag
         if self.wordcloud:
-            charts["wordcloud"] = f'<img src="{self.wordcloud}" alt="Word Cloud" style="width: 100%; height: auto; border-radius: var(--radius-md);">'
+            charts["wordcloud"] = (
+                f'<img src="{self.wordcloud}" alt="Word Cloud" style="width: 100%; height: auto; border-radius: var(--radius-md);">'
+            )
         else:
             charts["wordcloud"] = ""
 
