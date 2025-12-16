@@ -78,7 +78,7 @@ For mobile-friendly reports that work without JavaScript, install the optional s
 uv pip install -e ".[static]"
 
 # Install Playwright's WebKit browser
-playwright install webkit
+uv run playwright install webkit
 ```
 
 The `--static` flag will then generate a pre-rendered HTML file perfect for mobile devices.

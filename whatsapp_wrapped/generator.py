@@ -238,8 +238,8 @@ def generate_static_html(
         try:
             from playwright.async_api import async_playwright
         except ImportError:
-            print("[!] Playwright not installed. Install with: pip install playwright")
-            print("[!] Then run: playwright install webkit")
+            print("[!] Playwright not installed. Install with: uv pip install playwright")
+            print("[!] Then run: uv run playwright install webkit")
             raise
 
         html_path_resolved = Path(html_path).resolve()
@@ -420,7 +420,7 @@ def generate_full_report(
         except ImportError:
             if not quiet:
                 print("[!] Skipping static HTML generation (Playwright not available)")
-                print("[!] Install with: pip install playwright && playwright install webkit")
+                print("[!] Install with: uv pip install playwright && uv run playwright install webkit")
             static_path = None
         except Exception as e:
             if not quiet:
