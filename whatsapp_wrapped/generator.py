@@ -263,22 +263,37 @@ def generate_static_html(
                 device_scale_factor=2,
             )
 
-            # Navigate to the HTML file with increased timeout for Colab environments
+            # Navigate to the HTML file
             file_url = html_path_resolved.as_uri()
-            await page.goto(file_url, timeout=60000)  # 60 second timeout
+            await page.goto(file_url)
 
-            # Wait for the page to fully load (including Plotly charts)
-            # Use increased timeout for slower environments (e.g., Colab from desktop browsers)
-            await page.wait_for_load_state("networkidle", timeout=60000)
+            # Wait for the page to fully load
+            await page.wait_for_load_state("networkidle")
 
-            # Give Plotly more time to finish rendering animations
-            # Increased from 1.5s to 3s for more reliable chart rendering
-            await page.wait_for_timeout(3000)
+            # Wait for Plotly to finish rendering all charts
+            # This checks that: 1) Plotly is loaded, 2) all chart containers have rendered data
+            await page.wait_for_function("""
+                () => {
+                    // Check if Plotly is loaded
+                    if (typeof Plotly === 'undefined') return false;
+                    
+                    // Get all Plotly chart containers
+                    const plots = document.querySelectorAll('.js-plotly-plot');
+                    if (plots.length === 0) return false;
+                    
+                    // Check each plot has data (meaning it's fully rendered)
+                    for (const plot of plots) {
+                        if (!plot.data || !plot.layout) return false;
+                        // Check that SVG is present (chart is actually drawn)
+                        if (!plot.querySelector('svg.main-svg')) return false;
+                    }
+                    return true;
+                }
+            """, timeout=30000)
 
             # Force Plotly to redraw all charts to ensure annotations render
             await page.evaluate("""
                 () => {
-                    // Find all Plotly chart containers and force relayout
                     const plots = document.querySelectorAll('.js-plotly-plot');
                     plots.forEach(plot => {
                         if (window.Plotly && plot.data) {
@@ -288,9 +303,16 @@ def generate_static_html(
                 }
             """)
 
-            # Wait a bit more for the relayout to complete
-            # Increased from 0.5s to 1s for more reliable rendering
-            await page.wait_for_timeout(1000)
+            # Wait for relayout to complete by checking the plots are still valid
+            await page.wait_for_function("""
+                () => {
+                    const plots = document.querySelectorAll('.js-plotly-plot');
+                    for (const plot of plots) {
+                        if (!plot.querySelector('svg.main-svg')) return false;
+                    }
+                    return true;
+                }
+            """, timeout=10000)
 
             # Get the fully rendered HTML content
             rendered_html = await page.content()
