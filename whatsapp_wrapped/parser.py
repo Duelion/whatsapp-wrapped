@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from zipfile import ZipFile
 
-import pandas as pd
+import polars as pl
 
 
 @dataclass
@@ -313,7 +313,7 @@ def _classify_message_type(message: str) -> str:
     return "text"
 
 
-def parse_chat(raw_text: str) -> pd.DataFrame:
+def parse_chat(raw_text: str) -> pl.DataFrame:
     """
     Parse raw WhatsApp chat text into a structured DataFrame.
 
@@ -395,7 +395,7 @@ def parse_chat(raw_text: str) -> pd.DataFrame:
                 else:
                     # If we can't parse the timestamp, treat as continuation
                     if current_message:
-                        current_message["message"] += "\n" + line
+                        current_message["message"] += "\n" + line.strip()
             elif current_message:
                 # Continuation of previous message
                 current_message["message"] += "\n" + line.strip()
@@ -414,22 +414,48 @@ def parse_chat(raw_text: str) -> pd.DataFrame:
         )
 
     # Create DataFrame
-    df = pd.DataFrame(messages)
+    df = pl.DataFrame(messages)
 
     # Store original names and use cleaned names for analytics
-    df["name_original"] = df["name"]
-    df["name"] = df["name"].str.replace(r"[^\w\s]", "", regex=True).str.strip()
+    # Note: Assumes 'name_original' doesn't exist in the parsed messages
+    # (which is guaranteed by our message parsing logic)
+    df = df.with_columns([
+        pl.col("name").alias("name_original"),
+        pl.col("name").str.replace_all(r"[^\w\s]", "").str.strip_chars().alias("name")
+    ])
 
-    # Classify message types
-    df["message_type"] = df["message"].apply(_classify_message_type)
+    # Classify message types using native Polars expressions (faster than map_elements)
+    msg_lower = pl.col("message").str.to_lowercase()
+    df = df.with_columns(
+        pl.when(msg_lower.str.contains("image omitted|imagen omitida|<media omitted>"))
+        .then(pl.lit("image"))
+        .when(msg_lower.str.contains("video omitted|vídeo omitido"))
+        .then(pl.lit("video"))
+        .when(msg_lower.str.contains("audio omitted|audio omitido"))
+        .then(pl.lit("audio"))
+        .when(msg_lower.str.contains("sticker omitted|sticker omitido"))
+        .then(pl.lit("sticker"))
+        .when(msg_lower.str.contains("gif omitted|gif omitido"))
+        .then(pl.lit("gif"))
+        .when(msg_lower.str.contains("document omitted|documento omitido"))
+        .then(pl.lit("document"))
+        .when(msg_lower.str.contains("contact card omitted|tarjeta de contacto omitida"))
+        .then(pl.lit("contact"))
+        .when(msg_lower.str.contains("location:|ubicación:"))
+        .then(pl.lit("location"))
+        .when(pl.col("message").str.contains("https?://"))
+        .then(pl.lit("link"))
+        .otherwise(pl.lit("text"))
+        .alias("message_type")
+    )
 
     # Sort by timestamp
-    df = df.sort_values("timestamp").reset_index(drop=True)
+    df = df.sort("timestamp")
 
     return df
 
 
-def filter_system_messages(df: pd.DataFrame) -> pd.DataFrame:
+def filter_system_messages(df: pl.DataFrame) -> pl.DataFrame:
     """
     Remove system messages (group changes, etc.) from the DataFrame.
 
@@ -457,12 +483,11 @@ def filter_system_messages(df: pd.DataFrame) -> pd.DataFrame:
     ]
 
     pattern = "|".join(system_patterns)
-    mask = df["message"].str.contains(pattern, case=False, regex=True, na=False)
+    # Filter out messages containing system patterns
+    return df.filter(~pl.col("message").str.contains(pattern, literal=False))
 
-    return df[~mask].copy()
 
-
-def filter_bot_users(df: pd.DataFrame) -> pd.DataFrame:
+def filter_bot_users(df: pl.DataFrame) -> pl.DataFrame:
     """
     Remove bot and automated users (like Meta AI) from the DataFrame.
 
@@ -475,12 +500,11 @@ def filter_bot_users(df: pd.DataFrame) -> pd.DataFrame:
     bot_names = ["Meta AI", "meta ai"]
 
     # Filter out exact matches and case-insensitive matches
-    mask = df["name"].str.lower().isin([name.lower() for name in bot_names])
+    bot_names_lower = [name.lower() for name in bot_names]
+    return df.filter(~pl.col("name").str.to_lowercase().is_in(bot_names_lower))
 
-    return df[~mask].copy()
 
-
-def get_chat_metadata(df: pd.DataFrame, filename: str = "chat") -> ChatMetadata:
+def get_chat_metadata(df: pl.DataFrame, filename: str = "chat") -> ChatMetadata:
     """
     Extract metadata from a parsed chat DataFrame.
 
@@ -499,10 +523,10 @@ def get_chat_metadata(df: pd.DataFrame, filename: str = "chat") -> ChatMetadata:
     return ChatMetadata(
         filename=clean_filename,
         total_messages=len(df),
-        total_members=df["name"].nunique(),
+        total_members=df["name"].n_unique(),
         date_range_start=df["timestamp"].min(),
         date_range_end=df["timestamp"].max(),
-        member_names=sorted(df["name"].unique().tolist()),
+        member_names=sorted(df["name"].unique().to_list()),
     )
 
 
@@ -511,7 +535,7 @@ def parse_whatsapp_export(
     filter_system: bool = True,
     min_messages: int = 1,
     year_filter: int | None = None,
-) -> tuple[pd.DataFrame, ChatMetadata]:
+) -> tuple[pl.DataFrame, ChatMetadata]:
     """
     Main entry point: Parse a WhatsApp export file.
 
@@ -541,16 +565,15 @@ def parse_whatsapp_export(
 
     # Filter by year if specified
     if year_filter:
-        df = df[df["timestamp"].dt.year == year_filter].copy()
+        df = df.filter(pl.col("timestamp").dt.year() == year_filter)
 
     # Filter users with minimum messages
     if min_messages > 1:
-        user_counts = df["name"].value_counts()
-        valid_users = user_counts[user_counts >= min_messages].index
-        df = df[df["name"].isin(valid_users)].copy()
-
-    # Reset index after filtering
-    df = df.reset_index(drop=True)
+        # Get user counts as a DataFrame
+        user_counts = df.group_by("name").len().sort("len", descending=True)
+        # Get users with at least min_messages
+        valid_users = user_counts.filter(pl.col("len") >= min_messages)["name"].to_list()
+        df = df.filter(pl.col("name").is_in(valid_users))
 
     # Get metadata
     metadata = get_chat_metadata(df, file_path.name)

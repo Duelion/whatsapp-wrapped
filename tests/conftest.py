@@ -43,8 +43,9 @@ def full_chat_data(chat_file_path):
 @pytest.fixture(scope="session")
 def chat_data_3months(full_chat_data):
     """Filter to last 3 months for faster tests."""
+    import polars as pl
     df, metadata = full_chat_data
     end_date = df["timestamp"].max()
     start_date = end_date - timedelta(days=90)
-    df_filtered = df[df["timestamp"] >= start_date].copy()
+    df_filtered = df.filter(pl.col("timestamp") >= start_date)
     return df_filtered, metadata

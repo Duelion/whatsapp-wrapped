@@ -69,7 +69,7 @@ def _render_report_template(
     # Render template
     if not quiet:
         print("[*] Rendering HTML report...")
-    
+
     return template.render(
         metadata=report_data.metadata,
         analytics=report_data.analytics,

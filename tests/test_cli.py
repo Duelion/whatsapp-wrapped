@@ -87,11 +87,11 @@ def test_year_filter_option(chat_file_path, tmp_path, monkeypatch):
     df_full, _ = parse_whatsapp_export(chat_file_path, filter_system=True)
 
     # Find a year that has sufficient data
-    available_years = df_full["timestamp"].dt.year.unique()
+    available_years = df_full["timestamp"].dt.year().unique().to_list()
     if len(available_years) > 0:
         # Pick the year with the most messages
-        year_counts = df_full.groupby(df_full["timestamp"].dt.year).size()
-        test_year = int(year_counts.idxmax())
+        year_counts = df_full.group_by(df_full["timestamp"].dt.year()).len().sort("len", descending=True)
+        test_year = int(year_counts["timestamp"][0])
 
         with patch(
             "sys.argv",
@@ -158,12 +158,12 @@ def test_multiple_options_combined(chat_file_path, tmp_path):
     from whatsapp_wrapped.parser import parse_whatsapp_export
 
     df_full, _ = parse_whatsapp_export(chat_file_path, filter_system=True)
-    available_years = df_full["timestamp"].dt.year.unique()
+    available_years = df_full["timestamp"].dt.year().unique().to_list()
 
     if len(available_years) > 0:
         # Pick the year with the most messages to ensure we have data after filtering
-        year_counts = df_full.groupby(df_full["timestamp"].dt.year).size()
-        test_year = int(year_counts.idxmax())
+        year_counts = df_full.group_by(df_full["timestamp"].dt.year()).len().sort("len", descending=True)
+        test_year = int(year_counts["timestamp"][0])
 
         with patch(
             "sys.argv",

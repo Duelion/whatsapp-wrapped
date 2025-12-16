@@ -4,6 +4,8 @@ Basic tests for WhatsApp chat parser.
 
 from datetime import datetime
 
+import polars as pl
+
 from whatsapp_wrapped.parser import (
     _detect_date_order,
     _parse_timestamp,
@@ -23,10 +25,11 @@ def test_parse_chat_file(chat_file_path, full_chat_data):
 def test_dataframe_has_required_columns(chat_data_3months):
     """Test DataFrame has expected columns."""
     df, _ = chat_data_3months
-    assert "timestamp" in df.columns
-    assert "name" in df.columns
-    assert "message" in df.columns
-    assert "message_type" in df.columns
+    columns = df.columns
+    assert "timestamp" in columns
+    assert "name" in columns
+    assert "message" in columns
+    assert "message_type" in columns
 
 
 def test_three_month_filter(chat_data_3months, full_chat_data):
@@ -36,21 +39,23 @@ def test_three_month_filter(chat_data_3months, full_chat_data):
     assert len(df_filtered) < len(df_full)
 
 
-def test_pandas_operations(chat_data_3months):
-    """Test basic pandas operations work."""
+def test_polars_operations(chat_data_3months):
+    """Test basic polars operations work."""
     df, _ = chat_data_3months
 
     # Basic operations
-    assert df["name"].nunique() > 0
-    assert df["message_type"].value_counts()["text"] > 0
-    assert df["timestamp"].dtype == "datetime64[ns]"
+    assert df["name"].n_unique() > 0
+    msg_type_counts = df.group_by("message_type").len()
+    text_count = msg_type_counts.filter(pl.col("message_type") == "text")
+    assert len(text_count) > 0 and text_count["len"][0] > 0
+    assert df["timestamp"].dtype == pl.Datetime
 
     # DateTime operations
-    assert df["timestamp"].dt.year.nunique() > 0
-    assert df["timestamp"].dt.hour.nunique() > 0
+    assert df["timestamp"].dt.year().n_unique() > 0
+    assert df["timestamp"].dt.hour().n_unique() > 0
 
     # GroupBy operations
-    user_counts = df.groupby("name").size()
+    user_counts = df.group_by("name").len()
     assert len(user_counts) > 0
 
 
@@ -60,7 +65,7 @@ def test_message_type_classification(full_chat_data):
 
     # Check that message_type column exists and has valid values
     assert "message_type" in df.columns
-    message_types = df["message_type"].unique()
+    message_types = df["message_type"].unique().to_list()
 
     # Should have at least 'text' type
     assert "text" in message_types
@@ -96,9 +101,9 @@ def test_system_message_filtering(chat_file_path):
     # Check that common system message patterns are not in filtered data
     system_keywords = ["added", "removed", "left", "changed the subject", "created group"]
     for keyword in system_keywords:
-        matches = df_filtered["message"].str.contains(keyword, case=False, na=False).sum()
+        matches = df_filtered.filter(pl.col("message").str.contains(keyword, literal=False))
         # Should have very few or no system messages
-        assert matches < len(df_filtered) * 0.1  # Less than 10% should contain these keywords
+        assert len(matches) < len(df_filtered) * 0.1  # Less than 10% should contain these keywords
 
 
 def test_bot_user_filtering(chat_file_path):
@@ -113,8 +118,10 @@ def test_bot_user_filtering(chat_file_path):
     df_filtered = filter_bot_users(df)
 
     # Check that Meta AI is not in filtered data
-    assert "Meta AI" not in df_filtered["name"].values
-    assert "meta ai" not in df_filtered["name"].str.lower().values
+    names = df_filtered["name"].to_list()
+    assert "Meta AI" not in names
+    names_lower = df_filtered["name"].str.to_lowercase().to_list()
+    assert "meta ai" not in names_lower
 
 
 def test_year_filter(chat_file_path):
@@ -123,7 +130,7 @@ def test_year_filter(chat_file_path):
     df_full, _ = parse_whatsapp_export(chat_file_path, filter_system=True)
 
     # Get available years
-    years = df_full["timestamp"].dt.year.unique()
+    years = df_full["timestamp"].dt.year().unique().to_list()
 
     if len(years) > 1:
         # Pick the first year
@@ -135,7 +142,7 @@ def test_year_filter(chat_file_path):
         )
 
         # All messages should be from the specified year
-        assert (df_year["timestamp"].dt.year == test_year).all()
+        assert (df_year["timestamp"].dt.year() == test_year).all()
 
         # Should be fewer messages than full dataset
         assert len(df_year) < len(df_full)
@@ -156,8 +163,8 @@ def test_min_messages_filter(chat_file_path):
 
     # Verify all users in high threshold have at least min_messages
     if len(df_high) > 0:
-        user_counts = df_high["name"].value_counts()
-        assert (user_counts >= 50).all()
+        user_counts = df_high.group_by("name").len()
+        assert (user_counts["len"] >= 50).all()
 
 
 def test_metadata_accuracy(chat_file_path):
@@ -166,13 +173,13 @@ def test_metadata_accuracy(chat_file_path):
 
     # Check metadata matches DataFrame
     assert metadata.total_messages == len(df)
-    assert metadata.total_members == df["name"].nunique()
+    assert metadata.total_members == df["name"].n_unique()
     assert metadata.date_range_start == df["timestamp"].min()
     assert metadata.date_range_end == df["timestamp"].max()
     assert len(metadata.member_names) == metadata.total_members
 
     # Check member names match
-    assert set(metadata.member_names) == set(df["name"].unique())
+    assert set(metadata.member_names) == set(df["name"].unique().to_list())
 
 
 def test_timestamp_parsing_and_sorting(full_chat_data):
@@ -180,14 +187,14 @@ def test_timestamp_parsing_and_sorting(full_chat_data):
     df, _ = full_chat_data
 
     # Check timestamp is datetime type
-    assert df["timestamp"].dtype == "datetime64[ns]"
+    assert df["timestamp"].dtype == pl.Datetime
 
     # Check timestamps are sorted (allowing for potential ties)
-    timestamps = df["timestamp"].values
+    timestamps = df["timestamp"].to_list()
     assert all(timestamps[i] <= timestamps[i + 1] for i in range(len(timestamps) - 1))
 
     # Check no null timestamps
-    assert df["timestamp"].notna().all()
+    assert df["timestamp"].is_not_null().all()
 
 
 def test_link_detection_in_messages(full_chat_data):
@@ -195,11 +202,11 @@ def test_link_detection_in_messages(full_chat_data):
     df, _ = full_chat_data
 
     # Find messages classified as links
-    link_messages = df[df["message_type"] == "link"]
+    link_messages = df.filter(pl.col("message_type") == "link")
 
     if len(link_messages) > 0:
         # Check that link messages contain http:// or https://
-        for msg in link_messages["message"].head(10):
+        for msg in link_messages["message"].head(10).to_list():
             assert "http://" in msg.lower() or "https://" in msg.lower()
 
 
@@ -238,8 +245,8 @@ def test_unicode_direction_marks():
 
     # Should parse both messages
     assert len(df) == 2
-    assert df.iloc[0]["name"] == "Alice"
-    assert df.iloc[1]["name"] == "Bob"
+    assert df["name"][0] == "Alice"
+    assert df["name"][1] == "Bob"
 
 
 def test_date_order_detection_dd_mm():
@@ -282,12 +289,12 @@ def test_system_messages_without_author():
 
     # Should parse both messages
     assert len(df) >= 1  # At least the user message
-    assert "Alice" in df["name"].values
+    assert "Alice" in df["name"].to_list()
 
     # Check if system message was captured
-    system_messages = df[df["name"] == "System"]
+    system_messages = df.filter(pl.col("name") == "System")
     if len(system_messages) > 0:
-        assert "encrypted" in system_messages.iloc[0]["message"].lower()
+        assert "encrypted" in system_messages["message"][0].lower()
 
 
 def test_ios_bracketed_format():
@@ -298,8 +305,8 @@ def test_ios_bracketed_format():
     df = parse_chat(chat_ios)
 
     assert len(df) == 2
-    assert df.iloc[0]["name"] == "Alice"
-    assert df.iloc[1]["name"] == "Bob"
+    assert df["name"][0] == "Alice"
+    assert df["name"][1] == "Bob"
 
 
 def test_multiline_message_parsing():
@@ -313,11 +320,11 @@ lines
 
     assert len(df) == 2
     # Alice's message should contain newlines
-    assert "\n" in df.iloc[0]["message"]
-    assert "multiple" in df.iloc[0]["message"]
-    assert "lines" in df.iloc[0]["message"]
+    assert "\n" in df["message"][0]
+    assert "multiple" in df["message"][0]
+    assert "lines" in df["message"][0]
     # Bob's message should be single line
-    assert df.iloc[1]["message"] == "Short message"
+    assert df["message"][1] == "Short message"
 
 
 def test_mixed_format_handling():
@@ -329,8 +336,8 @@ def test_mixed_format_handling():
 
     # Should parse both messages correctly
     assert len(df) == 2
-    assert df.iloc[0]["timestamp"].hour == 10
-    assert df.iloc[1]["timestamp"].hour == 15
+    assert df["timestamp"][0].hour == 10
+    assert df["timestamp"][1].hour == 15
 
 
 def test_media_placeholder_detection():
@@ -343,9 +350,9 @@ def test_media_placeholder_detection():
 
     assert len(df) == 3
     # First two should be media types
-    assert df.iloc[0]["message_type"] in ["image", "video", "audio", "sticker"]
+    assert df["message_type"][0] in ["image", "video", "audio", "sticker"]
     # Third should be text
-    assert df.iloc[2]["message_type"] == "text"
+    assert df["message_type"][2] == "text"
 
 
 def test_empty_message_handling():
@@ -357,8 +364,8 @@ def test_empty_message_handling():
 
     # Should handle empty message gracefully
     assert len(df) == 2
-    assert df.iloc[0]["message"] == ""
-    assert df.iloc[1]["message"] == "Not empty"
+    assert df["message"][0] == ""
+    assert df["message"][1] == "Not empty"
 
 
 def test_special_characters_in_names():
@@ -371,5 +378,5 @@ def test_special_characters_in_names():
     # Should parse both messages
     assert len(df) == 2
     # Names should be captured (even if cleaned later)
-    assert len(df.iloc[0]["name"]) > 0
-    assert len(df.iloc[1]["name"]) > 0
+    assert len(df["name"][0]) > 0
+    assert len(df["name"][1]) > 0

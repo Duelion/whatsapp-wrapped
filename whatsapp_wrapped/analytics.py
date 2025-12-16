@@ -9,9 +9,9 @@ import contextlib
 import math
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 
-import pandas as pd
+import polars as pl
 from stop_words import get_stop_words
 
 
@@ -30,8 +30,8 @@ class UserStats:
     most_active_hour: int
     message_types: dict[str, int]
     activity_category: str  # "night_owl", "early_bird", "balanced"
-    daily_activity: pd.Series  # Daily message counts for sparkline
-    hourly_activity: pd.Series  # Hourly message counts (0-23) for daily pattern sparkline
+    daily_activity: pl.Series  # Daily message counts for sparkline
+    hourly_activity: pl.Series  # Hourly message counts (0-23) for daily pattern sparkline
 
 
 @dataclass
@@ -50,18 +50,18 @@ class ChatAnalytics:
     user_stats: list[UserStats]
     top_messagers: list[tuple[str, int]]
 
-    # Time-based data
-    messages_by_hour: pd.Series
-    messages_by_weekday: pd.Series
-    messages_by_date: pd.Series
-    messages_by_month: pd.Series
+    # Time-based data (stored as DataFrames with keys and counts for compatibility with charts)
+    messages_by_hour: pl.DataFrame  # columns: hour, count
+    messages_by_weekday: pl.DataFrame  # columns: weekday, count
+    messages_by_date: pl.DataFrame  # columns: date, count
+    messages_by_month: pl.DataFrame  # columns: month, count
 
     # Hourly activity per user (for heatmap)
-    hourly_activity_by_user: pd.DataFrame
+    hourly_activity_by_user: pl.DataFrame
 
     # Message type breakdown
-    message_type_counts: pd.Series
-    message_type_by_user: pd.DataFrame
+    message_type_counts: pl.DataFrame  # columns: message_type, count
+    message_type_by_user: pl.DataFrame
 
     # Emoji stats
     top_emojis_overall: list[tuple[str, int]]
@@ -74,12 +74,12 @@ class ChatAnalytics:
     total_stickers: int  # total stickers sent
 
     # Word cloud data
-    word_frequencies: pd.Series  # Word frequencies for word cloud
+    word_frequencies: pl.DataFrame  # Word frequencies for word cloud (columns: word, count)
 
 
 def extract_emojis(text: str) -> list[str]:
     """Extract all emojis from a text string using Unicode regex patterns."""
-    if pd.isna(text):
+    if text is None:
         return []
 
     # Comprehensive emoji regex pattern covering:
@@ -144,7 +144,7 @@ def extract_emojis(text: str) -> list[str]:
     return result
 
 
-def extract_word_frequencies(df: pd.DataFrame, min_word_length: int = 3) -> pd.Series:
+def extract_word_frequencies(df: pl.DataFrame, min_word_length: int = 3) -> pl.DataFrame:
     """
     Extract word frequencies from all messages for word cloud generation.
 
@@ -155,7 +155,7 @@ def extract_word_frequencies(df: pd.DataFrame, min_word_length: int = 3) -> pd.S
         min_word_length: Minimum word length to include (default: 3)
 
     Returns:
-        pd.Series with words as index and counts as values, sorted descending
+        pl.DataFrame with columns 'word' and 'count', sorted by count descending
     """
     # Build combined stopwords from multiple languages
     languages = [
@@ -310,28 +310,30 @@ def extract_word_frequencies(df: pd.DataFrame, min_word_length: int = 3) -> pd.S
 
     # Collect all words from text messages only
     all_words = []
-    text_messages = df[df["message_type"] == "text"]["message"]
+    text_messages = df.filter(pl.col("message_type") == "text")["message"].to_list()
 
     for msg in text_messages:
-        if pd.isna(msg):
+        if msg is None:
             continue
         # Tokenize and filter
         tokens = token_re.findall(str(msg).lower())
         filtered = [t for t in tokens if len(t) >= min_word_length and t not in stopwords]
         all_words.extend(filtered)
 
-    # Create frequency Series using pandas (consistent with emoji frequency code)
+    # Create frequency DataFrame using polars
     if not all_words:
-        return pd.Series(dtype=int)
+        # Return empty DataFrame with correct schema
+        return pl.DataFrame({"word": [], "count": []}, schema={"word": pl.Utf8, "count": pl.UInt32})
 
-    word_freq = pd.Series(all_words).value_counts()
-
-    return word_freq
+    # Create series and get value counts - returns a DataFrame with "word" and "count" columns
+    word_series = pl.Series("word", all_words)
+    word_freq_df = word_series.value_counts(sort=True)
+    return word_freq_df
 
 
 def get_word_count(text: str) -> int:
     """Count words in a message, excluding media placeholders."""
-    if pd.isna(text):
+    if text is None:
         return 0
     # Remove URLs
     text = re.sub(r"https?://\S+", "", str(text))
@@ -342,76 +344,128 @@ def get_word_count(text: str) -> int:
 
 
 def calculate_user_stats(
-    df: pd.DataFrame, user_name: str, date_range: pd.DatetimeIndex = None
+    df: pl.DataFrame, user_name: str, date_range: list[date] | None = None
 ) -> UserStats:
     """Calculate comprehensive statistics for a single user."""
-    user_df = df[df["name"] == user_name].copy()
+    user_df = df.filter(pl.col("name") == user_name)
 
     # Basic counts
     total_messages = len(user_df)
 
     # Word count (reuse pre-calculated if available)
     if "word_count" not in user_df.columns:
-        user_df["word_count"] = user_df["message"].apply(get_word_count)
-    total_words = user_df["word_count"].sum()
+        user_df = user_df.with_columns(
+            pl.col("message")
+            .str.replace_all(r"https?://\S+", "")  # Remove URLs
+            .str.replace_all(r"\w+ omitted", "")   # Remove media placeholders
+            .str.split(" ")
+            .list.len()
+            .fill_null(0)
+            .alias("word_count")
+        )
+    total_words = user_df["word_count"].fill_null(0).sum()
 
     # Average message length (characters)
-    text_messages = user_df[user_df["message_type"] == "text"]
-    avg_message_length = text_messages["message"].str.len().mean() if len(text_messages) > 0 else 0
+    text_messages = user_df.filter(pl.col("message_type") == "text")
+    avg_message_length = text_messages["message"].str.len_chars().mean() if len(text_messages) > 0 else 0
 
     # Emoji analysis (reuse pre-extracted emojis if available)
     if "emojis" in user_df.columns:
-        all_emojis = [emoji for emoji_list in user_df["emojis"] for emoji in emoji_list]
+        all_emojis = [emoji for emoji_list in user_df["emojis"].to_list() for emoji in emoji_list]
     else:
         all_emojis = []
-        for msg in user_df["message"]:
-            all_emojis.extend(extract_emojis(str(msg)))
+        for msg in user_df["message"].to_list():
+            all_emojis.extend(extract_emojis(str(msg) if msg is not None else ""))
 
     emoji_count = len(all_emojis)
-    emoji_freq = pd.Series(all_emojis).value_counts()
-    top_emojis = list(emoji_freq.head(7).items()) if len(emoji_freq) > 0 else []
+    if all_emojis:
+        emoji_series = pl.Series("emoji", all_emojis)
+        emoji_freq = emoji_series.value_counts(sort=True)
+        top_emojis = list(zip(emoji_freq["emoji"].head(7).to_list(), emoji_freq["count"].head(7).to_list(), strict=True))
+    else:
+        top_emojis = []
 
     # Daily activity for sparkline - normalized to full date range
-    daily_activity = user_df.groupby(user_df["timestamp"].dt.date).size()
+    daily_counts = user_df.group_by(pl.col("timestamp").dt.date()).len().sort("timestamp")
 
-    # If date_range is provided, reindex to fill the entire range with 0s
+    # If date_range is provided, create full date range and join
     if date_range is not None:
-        daily_activity = daily_activity.reindex(date_range, fill_value=0)
+        # Create scaffold of all dates
+        date_scaffold = pl.DataFrame({"date": date_range})
+        # Join with actual counts
+        daily_activity_df = date_scaffold.join(
+            daily_counts.rename({"timestamp": "date"}),
+            on="date",
+            how="left"
+        ).with_columns(
+            pl.col("len").fill_null(0)
+        )
+        daily_activity = daily_activity_df["len"]
+    else:
+        daily_activity = daily_counts["len"]
 
-    # Calculate longest silence (days between messages)
-    message_dates = user_df["timestamp"].dt.date.unique()
-    if len(message_dates) > 1:
-        date_diffs = pd.Series(sorted(message_dates)).diff().dropna()
-        longest_silence = date_diffs.max().days if len(date_diffs) > 0 else 0
+    # Calculate longest silence (days between messages) using native Polars
+    unique_dates_df = user_df.select(pl.col("timestamp").dt.date().unique().alias("date")).sort("date")
+    if len(unique_dates_df) > 1:
+        date_diffs_df = unique_dates_df.with_columns(
+            (pl.col("date") - pl.col("date").shift(1)).alias("diff_days")
+        )
+        max_diff = date_diffs_df["diff_days"].drop_nulls().max()
+        longest_silence = max_diff.days if max_diff is not None else 0
     else:
         longest_silence = 0
 
-    # Calculate longest streak (consecutive days with messages)
-    if len(message_dates) > 1:
-        dates_sorted = pd.Series(sorted(message_dates))
-        diffs = dates_sorted.diff().dt.days
-        streak_groups = (diffs != 1).cumsum()
-        streak_lengths = dates_sorted.groupby(streak_groups).size()
-        longest_streak = streak_lengths.max()
+    # Calculate longest streak (consecutive days with messages) using native Polars
+    if len(unique_dates_df) > 1:
+        # Calculate day differences and mark streak breaks
+        streak_df = unique_dates_df.with_columns(
+            (pl.col("date") - pl.col("date").shift(1)).alias("diff")
+        ).with_columns(
+            # A new streak starts when diff is null (first row) or diff != 1 day
+            pl.when(pl.col("diff").is_null())
+            .then(pl.lit(1))
+            .when(pl.col("diff").dt.total_days() != 1)
+            .then(pl.lit(1))
+            .otherwise(pl.lit(0))
+            .alias("is_new_streak")
+        ).with_columns(
+            # Create streak groups using cumulative sum of streak breaks
+            pl.col("is_new_streak").cum_sum().alias("streak_group")
+        )
+        # Count dates in each streak group
+        streak_lengths = streak_df.group_by("streak_group").len()
+        longest_streak = int(streak_lengths["len"].max() or 1)
     else:
-        longest_streak = 1 if len(message_dates) == 1 else 0
+        longest_streak = 1 if len(unique_dates_df) == 1 else 0
 
     # Most active hour
-    hour_counts = user_df["timestamp"].dt.hour.value_counts()
-    most_active_hour = hour_counts.idxmax() if len(hour_counts) > 0 else 12
+    hour_counts = user_df.group_by(pl.col("timestamp").dt.hour()).len().sort("len", descending=True)
+    most_active_hour = hour_counts["timestamp"].head(1)[0] if len(hour_counts) > 0 else 12
 
     # Hourly activity distribution (0-23)
-    hourly_activity = user_df.groupby(user_df["timestamp"].dt.hour).size()
-    hourly_activity = hourly_activity.reindex(range(24), fill_value=0)
+    hourly_counts = user_df.group_by(pl.col("timestamp").dt.hour()).len().sort("timestamp")
+    # Create full 0-23 range
+    hour_scaffold = pl.DataFrame({"hour": list(range(24))})
+    hourly_activity_df = hour_scaffold.join(
+        hourly_counts.rename({"timestamp": "hour"}),
+        on="hour",
+        how="left"
+    ).with_columns(
+        pl.col("len").fill_null(0)
+    )
+    hourly_activity = hourly_activity_df["len"]
 
     # Message type breakdown
-    message_types = user_df["message_type"].value_counts().to_dict()
+    message_type_counts = user_df.group_by("message_type").len()
+    message_types = dict(zip(message_type_counts["message_type"].to_list(),
+                             message_type_counts["len"].to_list(), strict=True))
 
-    # Activity category based on hour distribution
-    night_hours = user_df["timestamp"].dt.hour.isin(range(0, 6)).sum()
-    morning_hours = user_df["timestamp"].dt.hour.isin(range(6, 12)).sum()
-    afternoon_hours = user_df["timestamp"].dt.hour.isin(range(12, 18)).sum()
-    evening_hours = user_df["timestamp"].dt.hour.isin(range(18, 24)).sum()
+    # Activity category based on hour distribution (using native Polars for performance)
+    hour_col = pl.col("timestamp").dt.hour()
+    night_hours = user_df.filter(hour_col.is_between(0, 5, closed="both")).height
+    morning_hours = user_df.filter(hour_col.is_between(6, 11, closed="both")).height
+    afternoon_hours = user_df.filter(hour_col.is_between(12, 17, closed="both")).height
+    evening_hours = user_df.filter(hour_col.is_between(18, 23, closed="both")).height
 
     if night_hours + evening_hours > morning_hours + afternoon_hours:
         activity_category = "night_owl"
@@ -423,8 +477,8 @@ def calculate_user_stats(
     return UserStats(
         name=user_name,
         total_messages=total_messages,
-        total_words=int(total_words),
-        avg_message_length=round(avg_message_length, 1),
+        total_words=int(total_words or 0),
+        avg_message_length=round(avg_message_length, 1) if avg_message_length is not None else 0.0,
         top_emojis=top_emojis,
         emoji_count=emoji_count,
         longest_silence_days=longest_silence,
@@ -437,7 +491,7 @@ def calculate_user_stats(
     )
 
 
-def analyze_chat(df: pd.DataFrame) -> ChatAnalytics:
+def analyze_chat(df: pl.DataFrame) -> ChatAnalytics:
     """
     Perform comprehensive analysis on a WhatsApp chat DataFrame.
 
@@ -449,102 +503,169 @@ def analyze_chat(df: pd.DataFrame) -> ChatAnalytics:
     """
     # Overview stats
     total_messages = len(df)
-    total_members = df["name"].nunique()
+    total_members = df["name"].n_unique()
 
     date_range = df["timestamp"].max() - df["timestamp"].min()
     num_days = max(date_range.days, 1)
     messages_per_day = round(total_messages / num_days, 1)
 
-    # Calculate total words and extract emojis once for all messages (performance optimization)
-    df["word_count"] = df["message"].apply(get_word_count)
-    total_words = int(df["word_count"].sum())
-    
+    # Calculate total words using native Polars expressions (faster than map_elements)
+    df = df.with_columns(
+        pl.col("message")
+        .str.replace_all(r"https?://\S+", "")  # Remove URLs
+        .str.replace_all(r"\w+ omitted", "")   # Remove media placeholders
+        .str.split(" ")
+        .list.len()
+        .fill_null(0)
+        .alias("word_count")
+    )
+    total_words = int(df["word_count"].sum() or 0)
+
     # Extract emojis once for reuse in user stats and overall stats
-    df["emojis"] = df["message"].apply(lambda msg: extract_emojis(str(msg)))
+    # Note: Using map_elements here due to complex emoji handling (ZWJ sequences, skin tones, etc.)
+    # A simpler str.extract_all approach could be used if emoji complexity is not needed
+    df = df.with_columns(
+        pl.col("message").map_elements(lambda msg: extract_emojis(str(msg) if msg is not None else ""),
+                                       return_dtype=pl.List(pl.Utf8)).alias("emojis")
+    )
 
-    # Time-based aggregations
-    messages_by_hour = df.groupby(df["timestamp"].dt.hour).size()
-    messages_by_hour = messages_by_hour.reindex(range(24), fill_value=0)
+    # Time-based aggregations - return as DataFrames with proper column names
+    hourly_counts = df.group_by(pl.col("timestamp").dt.hour()).len().sort("timestamp")
+    # Create full 0-23 range
+    hour_scaffold = pl.DataFrame({"hour": list(range(24))})
+    messages_by_hour = hour_scaffold.join(
+        hourly_counts.rename({"timestamp": "hour", "len": "count"}),
+        on="hour",
+        how="left"
+    ).with_columns(pl.col("count").fill_null(0))
 
-    weekday_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-    messages_by_weekday = df.groupby(df["timestamp"].dt.dayofweek).size()
-    messages_by_weekday.index = messages_by_weekday.index.map(lambda x: weekday_names[x])
+    # polars weekday() returns 1-7 where 1=Monday, 7=Sunday
+    weekday_counts = df.group_by(pl.col("timestamp").dt.weekday()).len().sort("timestamp")
+    # Create DataFrame with weekday numbers 1-7 and names
+    weekday_scaffold = pl.DataFrame({
+        "weekday_num": list(range(1, 8)),
+        "weekday": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    })
+    messages_by_weekday = weekday_scaffold.join(
+        weekday_counts.rename({"timestamp": "weekday_num", "len": "count"}),
+        on="weekday_num",
+        how="left"
+    ).with_columns(pl.col("count").fill_null(0)).select(["weekday", "count"])
 
-    messages_by_date = df.groupby(df["timestamp"].dt.date).size()
+    messages_by_date = df.group_by(pl.col("timestamp").dt.date()).len().sort("timestamp").rename({"timestamp": "date", "len": "count"})
 
-    messages_by_month = df.groupby(df["timestamp"].dt.to_period("M")).size()
-    messages_by_month.index = messages_by_month.index.astype(str)
+    # Extract year-month as string for grouping
+    df_with_month = df.with_columns(
+        pl.col("timestamp").dt.strftime("%Y-%m").alias("month")
+    )
+    messages_by_month = df_with_month.group_by("month").len().sort("month").rename({"len": "count"})
 
     # Most active day/hour
-    most_active_day = messages_by_weekday.idxmax()
-    most_active_hour = messages_by_hour.idxmax()
+    max_weekday_row = messages_by_weekday.sort("count", descending=True).head(1)
+    most_active_day = max_weekday_row["weekday"][0]
+    max_hour_row = messages_by_hour.sort("count", descending=True).head(1)
+    most_active_hour = max_hour_row["hour"][0]
 
     # Create full date range for normalized sparklines
     min_date = df["timestamp"].min().date()
     max_date = df["timestamp"].max().date()
-    full_date_range = pd.date_range(start=min_date, end=max_date, freq="D").date
+    # Create list of dates from min to max
+    full_date_range = pl.date_range(min_date, max_date, interval="1d", eager=True).cast(pl.Date).to_list()
 
     # User statistics with normalized date range
-    user_names = df["name"].unique()
+    user_names = df["name"].unique().to_list()
     user_stats = [calculate_user_stats(df, name, full_date_range) for name in user_names]
     user_stats.sort(key=lambda x: x.total_messages, reverse=True)
 
     top_messagers = [(u.name, u.total_messages) for u in user_stats]
 
     # Hourly activity by user (for heatmap)
-    hourly_by_user = df.groupby([df["name"], df["timestamp"].dt.hour]).size().unstack(fill_value=0)
-    hourly_by_user = hourly_by_user.reindex(columns=range(24), fill_value=0)
+    hourly_by_user_raw = df.group_by(["name", pl.col("timestamp").dt.hour()]).len()
+    # Pivot to get users as rows, hours as columns
+    # Note: Polars pivot creates column names from the hour values (0-23) as strings
+    hourly_by_user = hourly_by_user_raw.pivot(
+        index="name",
+        on="timestamp",
+        values="len"
+    ).fill_null(0)
+    # Ensure all 24 hours are present as columns (pivot may skip hours with no messages)
+    for hour in range(24):
+        hour_str = str(hour)  # Pivot creates string column names "0", "1", ..., "23"
+        if hour_str not in hourly_by_user.columns:
+            hourly_by_user = hourly_by_user.with_columns(pl.lit(0).alias(hour_str))
+    # Sort columns by hour
+    hour_cols = [str(h) for h in range(24)]
+    available_hour_cols = [c for c in hour_cols if c in hourly_by_user.columns]
+    hourly_by_user = hourly_by_user.select(["name"] + available_hour_cols)
 
     # Message type stats
-    message_type_counts = df["message_type"].value_counts()
-    message_type_by_user = df.groupby(["name", "message_type"]).size().unstack(fill_value=0)
+    message_type_counts = df.group_by("message_type").len().sort("len", descending=True).rename({"len": "count"})
+
+    message_type_by_user_raw = df.group_by(["name", "message_type"]).len()
+    message_type_by_user = message_type_by_user_raw.pivot(
+        index="name",
+        on="message_type",
+        values="len"
+    ).fill_null(0)
 
     # Emoji stats (reuse pre-extracted emojis)
     if "emojis" in df.columns:
-        all_emojis = [emoji for emoji_list in df["emojis"] for emoji in emoji_list]
+        all_emojis = [emoji for emoji_list in df["emojis"].to_list() for emoji in emoji_list]
     else:
         all_emojis = []
-        for msg in df["message"]:
-            all_emojis.extend(extract_emojis(str(msg)))
+        for msg in df["message"].to_list():
+            all_emojis.extend(extract_emojis(str(msg) if msg is not None else ""))
 
-    emoji_freq = pd.Series(all_emojis).value_counts() if all_emojis else pd.Series(dtype=int)
-    top_emojis_overall = list(emoji_freq.head(10).items())
-    emoji_diversity = len(emoji_freq)
+    if all_emojis:
+        emoji_series = pl.Series("emoji", all_emojis)
+        emoji_freq = emoji_series.value_counts(sort=True)
+        top_emojis_overall = list(zip(emoji_freq["emoji"].head(10).to_list(),
+                                      emoji_freq["count"].head(10).to_list(), strict=True))
+        emoji_diversity = len(emoji_freq)
+    else:
+        top_emojis_overall = []
+        emoji_diversity = 0
 
     # Word frequencies for word cloud
     word_frequencies = extract_word_frequencies(df)
 
     # Special stats
-    busiest_date = messages_by_date.idxmax()
-    busiest_day = (str(busiest_date), int(messages_by_date.max()))
+    busiest_date_row = messages_by_date.sort("count", descending=True).head(1)
+    busiest_date = busiest_date_row["date"][0]
+    busiest_day = (str(busiest_date), int(busiest_date_row["count"][0]))
 
     # Filter out days with 0 messages for quietest day
-    active_days = messages_by_date[messages_by_date > 0]
-    if len(active_days) > 0:
-        quietest_date = active_days.idxmin()
-        quietest_day = (str(quietest_date), int(active_days.min()))
+    active_days_df = messages_by_date.filter(pl.col("count") > 0)
+    if len(active_days_df) > 0:
+        quietest_date_row = active_days_df.sort("count").head(1)
+        quietest_date = quietest_date_row["date"][0]
+        quietest_day = (str(quietest_date), int(quietest_date_row["count"][0]))
     else:
         quietest_day = ("N/A", 0)
 
     # Longest conversation: day with most unique participants and messages
-    daily_stats = df.groupby(df["timestamp"].dt.date).agg(
-        messages=("message", "count"),
-        participants=("name", "nunique"),
+    daily_stats = df.group_by(pl.col("timestamp").dt.date()).agg([
+        pl.count("message").alias("messages"),
+        pl.col("name").n_unique().alias("participants")
+    ]).rename({"timestamp": "date"})
+    daily_stats = daily_stats.with_columns(
+        (pl.col("messages") * pl.col("participants")).alias("score")
     )
-    daily_stats["score"] = daily_stats["messages"] * daily_stats["participants"]
-    best_day_idx = daily_stats["score"].idxmax()
+    best_day_row = daily_stats.sort("score", descending=True).head(1)
+    best_day_date = best_day_row["date"][0]
 
     # Format date as human-readable
-    formatted_date = datetime.strptime(str(best_day_idx), "%Y-%m-%d").strftime("%B %d, %Y")
+    formatted_date = datetime.strptime(str(best_day_date), "%Y-%m-%d").strftime("%B %d, %Y")
 
     longest_conversation = {
         "date": formatted_date,
-        "messages": int(daily_stats.loc[best_day_idx, "messages"]),
-        "participants": int(daily_stats.loc[best_day_idx, "participants"]),
+        "messages": int(best_day_row["messages"][0]),
+        "participants": int(best_day_row["participants"][0]),
     }
 
     # Total stickers
-    total_stickers = int(message_type_counts.get("sticker", 0))
+    sticker_row = message_type_counts.filter(pl.col("message_type") == "sticker")
+    total_stickers = int(sticker_row["count"][0]) if len(sticker_row) > 0 else 0
 
     return ChatAnalytics(
         total_messages=total_messages,
@@ -806,7 +927,9 @@ def calculate_badges(user_stats: list[UserStats]) -> dict[str, list[dict]]:
 
     # Night Owl - highest percentage of messages during night hours (0-6, 18-24)
     def night_percentage(user):
-        night_hours = user.hourly_activity[list(range(0, 6)) + list(range(18, 24))].sum()
+        # hourly_activity is a Series of length 24 (indices 0-23)
+        night_indices = list(range(0, 6)) + list(range(18, 24))
+        night_hours = user.hourly_activity.gather(night_indices).sum()
         total = user.hourly_activity.sum()
         return (night_hours / total * 100) if total > 0 else 0
 
@@ -821,7 +944,9 @@ def calculate_badges(user_stats: list[UserStats]) -> dict[str, list[dict]]:
 
     # Early Bird - highest percentage of messages during morning hours (6-12)
     def morning_percentage(user):
-        morning_hours = user.hourly_activity[list(range(6, 12))].sum()
+        # hourly_activity is a Series of length 24 (indices 0-23)
+        morning_indices = list(range(6, 12))
+        morning_hours = user.hourly_activity.gather(morning_indices).sum()
         total = user.hourly_activity.sum()
         return (morning_hours / total * 100) if total > 0 else 0
 

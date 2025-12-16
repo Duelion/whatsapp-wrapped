@@ -6,8 +6,8 @@ Generates Plotly charts with a modern dark aesthetic.
 
 from typing import TYPE_CHECKING
 
-import pandas as pd
 import plotly.graph_objects as go
+import polars as pl
 
 if TYPE_CHECKING:
     from .analytics import ChatAnalytics
@@ -130,10 +130,13 @@ def chart_to_html(fig: go.Figure, include_plotlyjs: bool = False) -> str:
     )
 
 
-def create_messages_by_hour_chart(messages_by_hour: pd.Series) -> go.Figure:
+def create_messages_by_hour_chart(messages_by_hour: pl.DataFrame) -> go.Figure:
     """Create a bar chart showing message distribution by hour with gradient colors."""
-    hours = list(range(24))
-    values = [messages_by_hour.get(h, 0) for h in hours]
+    if len(messages_by_hour) == 0:
+        return go.Figure()
+
+    hours = messages_by_hour["hour"].to_list()
+    values = messages_by_hour["count"].to_list()
 
     total = sum(values) if values else 1
     percentages = [(v / total * 100) for v in values]
@@ -177,17 +180,19 @@ def create_messages_by_hour_chart(messages_by_hour: pd.Series) -> go.Figure:
     return fig
 
 
-def create_messages_by_weekday_chart(messages_by_weekday: pd.Series) -> go.Figure:
+def create_messages_by_weekday_chart(messages_by_weekday: pl.DataFrame) -> go.Figure:
     """Create a bar chart showing message distribution by day of week with gradient colors."""
-    days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    if len(messages_by_weekday) == 0:
+        return go.Figure()
+
     short_days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    values = [messages_by_weekday.get(d, 0) for d in days]
+    values = messages_by_weekday["count"].to_list()
 
     total = sum(values) if values else 1
     percentages = [(v / total * 100) for v in values]
 
     # Create gradient from violet (#8b5cf6) to rose (#f43f5e) based on day position
-    n = len(days)
+    n = len(short_days)
     colors = []
     for i in range(n):
         ratio = i / max(n - 1, 1)
@@ -222,13 +227,19 @@ def create_messages_by_weekday_chart(messages_by_weekday: pd.Series) -> go.Figur
     return fig
 
 
-def create_timeline_chart(messages_by_date: pd.Series) -> go.Figure:
+def create_timeline_chart(messages_by_date: pl.DataFrame) -> go.Figure:
     """Create a smoothed area chart showing message trend over time."""
-    dates = pd.to_datetime(messages_by_date.index)
-    values = messages_by_date.values
+    if len(messages_by_date) == 0:
+        return go.Figure()
+
+    from datetime import date as date_type
+
+    dates = messages_by_date["date"].to_list()
+    values = messages_by_date["count"].to_list()
 
     # Apply 3-day centered rolling average for smoothing (matches sparklines)
-    rolling_avg = pd.Series(values).rolling(window=3, min_periods=1, center=True).mean()
+    values_series = pl.Series(values)
+    rolling_avg = values_series.rolling_mean(window_size=3, center=True).fill_null(strategy="forward").fill_null(strategy="backward").to_list()
 
     fig = go.Figure()
 
@@ -255,26 +266,35 @@ def create_timeline_chart(messages_by_date: pd.Series) -> go.Figure:
         show_legend=False,  # Single trace, no legend needed
     )
 
-    # Generate month ticks for the date range
-    min_date = dates.min()
-    max_date = dates.max()
+    # Generate month ticks for the date range using Polars
+    if dates:
+        min_date = min(dates)
+        max_date = max(dates)
 
-    # Create tick values for the 1st of each month in the range
-    month_ticks = pd.date_range(
-        start=min_date.replace(day=1),
-        end=max_date,
-        freq="MS",  # Month Start
-    )
+        # Create first day of month for min_date
+        if isinstance(min_date, date_type):
+            first_of_month = date_type(min_date.year, min_date.month, 1)
+        else:
+            first_of_month = min_date.replace(day=1)
 
-    # Format as abbreviated month names (Jan, Feb, etc.)
-    tick_labels = [d.strftime("%b") for d in month_ticks]
+        # Use Polars date_range to generate month starts
+        month_range = pl.date_range(
+            first_of_month,
+            max_date,
+            interval="1mo",
+            eager=True
+        )
+        month_ticks = month_range.cast(pl.Date).to_list()
 
-    # Update x-axis with month ticks, slanted for readability
-    layout["xaxis"]["tickmode"] = "array"
-    layout["xaxis"]["tickvals"] = month_ticks
-    layout["xaxis"]["ticktext"] = tick_labels
-    layout["xaxis"]["tickangle"] = -45  # Slant for better fit
-    layout["margin"]["b"] = 70  # Extra bottom margin for slanted labels
+        # Format as abbreviated month names (Jan, Feb, etc.)
+        tick_labels = [d.strftime("%b") for d in month_ticks]
+
+        # Update x-axis with month ticks, slanted for readability
+        layout["xaxis"]["tickmode"] = "array"
+        layout["xaxis"]["tickvals"] = month_ticks
+        layout["xaxis"]["ticktext"] = tick_labels
+        layout["xaxis"]["tickangle"] = -45  # Slant for better fit
+        layout["margin"]["b"] = 70  # Extra bottom margin for slanted labels
 
     fig.update_layout(**layout)
 
@@ -283,6 +303,9 @@ def create_timeline_chart(messages_by_date: pd.Series) -> go.Figure:
 
 def create_top_users_chart(top_messagers: list[tuple[str, int]]) -> go.Figure:
     """Create a stylish horizontal bar chart with gradient colors."""
+    if len(top_messagers) == 0:
+        return go.Figure()
+
     users = [u[0] for u in top_messagers]
     counts = [u[1] for u in top_messagers]
 
@@ -341,13 +364,16 @@ def create_top_users_chart(top_messagers: list[tuple[str, int]]) -> go.Figure:
     return fig
 
 
-def create_message_types_chart(message_type_counts: pd.Series) -> go.Figure:
+def create_message_types_chart(message_type_counts: pl.DataFrame) -> go.Figure:
     """Create a modern donut chart of message type distribution."""
-    # Sort by count descending
-    data = message_type_counts.sort_values(ascending=False)
+    if len(message_type_counts) == 0:
+        return go.Figure()
 
-    labels = [label.title() for label in data.index.tolist()]
-    values = data.values.tolist()
+    # Sort by count descending
+    data = message_type_counts.sort("count", descending=True)
+
+    labels = [label.title() for label in data["message_type"].to_list()]
+    values = data["count"].to_list()
     total = sum(values)
 
     # Calculate percentages for conditional display
@@ -425,26 +451,42 @@ def create_message_types_chart(message_type_counts: pd.Series) -> go.Figure:
     return fig
 
 
-def create_hourly_heatmap(hourly_activity_by_user: pd.DataFrame, max_users: int = 15) -> go.Figure:
+def create_hourly_heatmap(hourly_activity_by_user: pl.DataFrame, max_users: int = 15) -> go.Figure:
     """Create a heatmap showing activity by user and hour."""
+    if len(hourly_activity_by_user) == 0:
+        return go.Figure()
+
     # Select top users by total messages
-    user_totals = hourly_activity_by_user.sum(axis=1).sort_values(ascending=False)
-    top_users = user_totals.head(max_users).index
-    data = hourly_activity_by_user.loc[top_users]
+    # Sum across hour columns (all columns except 'name')
+    hour_cols = [c for c in hourly_activity_by_user.columns if c != "name"]
+    user_totals = hourly_activity_by_user.with_columns(
+        pl.sum_horizontal(hour_cols).alias("total")
+    ).sort("total", descending=True)
+
+    top_users_df = user_totals.head(max_users)
+    top_user_names = top_users_df["name"].to_list()
+
+    # Filter to top users
+    data = hourly_activity_by_user.filter(pl.col("name").is_in(top_user_names))
+
+    # Get hour data as numpy array for heatmap
+    data_values = data.select(hour_cols).to_numpy()
 
     # Normalize per user for better visualization
-    data_normalized = data.div(data.max(axis=1), axis=0).fillna(0)
+    row_maxes = data_values.max(axis=1, keepdims=True)
+    row_maxes[row_maxes == 0] = 1  # Avoid division by zero
+    data_normalized = data_values / row_maxes
 
     # Create customdata with absolute values
-    customdata = data.values
+    customdata = data_values
 
     fig = go.Figure()
 
     fig.add_trace(
         go.Heatmap(
-            z=data_normalized.values,
+            z=data_normalized,
             x=list(range(24)),
-            y=data.index.tolist(),
+            y=top_user_names,
             colorscale=[
                 [0, COLORS["background"]],
                 [0.3, "rgba(59, 130, 246, 0.3)"],
@@ -461,7 +503,7 @@ def create_hourly_heatmap(hourly_activity_by_user: pd.DataFrame, max_users: int 
 
     # Calculate height to maintain square cells
     # 24 hours * cell_size, where cell_size should match y-axis spacing
-    height = max(300, 80 + 30 * len(top_users))  # Increased cell height for squares
+    height = max(300, 80 + 30 * len(top_user_names))  # Increased cell height for squares
 
     layout = get_modern_layout(
         title="Activity by User & Hour",
@@ -484,10 +526,13 @@ def create_hourly_heatmap(hourly_activity_by_user: pd.DataFrame, max_users: int 
     return fig
 
 
-def create_monthly_chart(messages_by_month: pd.Series) -> go.Figure:
+def create_monthly_chart(messages_by_month: pl.DataFrame) -> go.Figure:
     """Create a bar chart showing messages by month."""
-    months = messages_by_month.index.tolist()
-    values = messages_by_month.values.tolist()
+    if len(messages_by_month) == 0:
+        return go.Figure()
+
+    months = messages_by_month["month"].to_list()
+    values = messages_by_month["count"].to_list()
 
     total = sum(values) if values else 1
     percentages = [(v / total * 100) for v in values]
@@ -523,8 +568,9 @@ def create_monthly_chart(messages_by_month: pd.Series) -> go.Figure:
     return fig
 
 
-def create_calendar_heatmap(messages_by_date: pd.Series) -> go.Figure:
+def create_calendar_heatmap(messages_by_date: pl.DataFrame) -> go.Figure:
     """Create a calendar heatmap showing daily message activity in a calendar grid format."""
+    import pandas as pd  # Required by plotly_calplot library
     from plotly_calplot import calplot
 
     if len(messages_by_date) == 0:
@@ -533,10 +579,11 @@ def create_calendar_heatmap(messages_by_date: pd.Series) -> go.Figure:
         fig.update_layout(**get_modern_layout(title="", height=290))
         return fig
 
-    # Prepare data as a DataFrame with date and value columns
-    df = pd.DataFrame(
-        {"date": pd.to_datetime(messages_by_date.index), "value": messages_by_date.values}
-    )
+    # Convert polars to pandas for plotly-calplot compatibility
+    # Note: plotly_calplot requires pandas DataFrame, so this conversion is necessary
+    dates = messages_by_date["date"].to_list()
+    counts = messages_by_date["count"].to_list()
+    df = pd.DataFrame({"date": pd.to_datetime(dates), "value": counts})
 
     # Create the calendar heatmap using plotly-calplot
     # Optimized for single-year display
@@ -603,6 +650,9 @@ def create_calendar_heatmap(messages_by_date: pd.Series) -> go.Figure:
 
 def create_emoji_chart(top_emojis: list[tuple[str, int]], max_emojis: int = 10) -> go.Figure:
     """Create a horizontal bar chart of top emojis with colored ranking labels."""
+    if len(top_emojis) == 0:
+        return go.Figure()
+
     emojis = [e[0] for e in top_emojis[:max_emojis]]
     counts = [e[1] for e in top_emojis[:max_emojis]]
 
@@ -707,17 +757,19 @@ def create_emoji_chart(top_emojis: list[tuple[str, int]], max_emojis: int = 10) 
     return fig
 
 
-def create_user_sparkline(daily_activity: pd.Series, user_name: str) -> go.Figure:
+def create_user_sparkline(daily_activity: pl.Series, user_name: str) -> go.Figure:
     """Create a minimal sparkline chart for user activity over time."""
     # Fill missing dates with 0
     if len(daily_activity) == 0:
         return go.Figure()
 
-    dates = pd.to_datetime(daily_activity.index)
-    values = daily_activity.values
+    # daily_activity is a polars Series with counts (dates are implicit from date range)
+    values = daily_activity.to_list()
+    dates = list(range(len(values)))  # Use indices as x-axis
 
     # Apply 3-day rolling average for smoothing
-    rolling_avg = pd.Series(values).rolling(window=3, min_periods=1, center=True).mean()
+    rolling_avg_series = pl.Series(values).rolling_mean(window_size=3, min_samples=1, center=True)
+    rolling_avg = rolling_avg_series.fill_null(strategy="forward").fill_null(strategy="backward").to_list()
 
     fig = go.Figure()
 
@@ -732,13 +784,15 @@ def create_user_sparkline(daily_activity: pd.Series, user_name: str) -> go.Figur
             },
             fill="tozeroy",
             fillcolor="rgba(59, 130, 246, 0.1)",
-            hovertemplate="<b>%{x|%b %d}</b>: %{y:.0f} msgs<extra></extra>",
+            hovertemplate="<b>Day %{x}</b>: %{y:.0f} msgs<extra></extra>",
         )
     )
 
-    # Get start and end months for minimal x-axis labels
-    start_month = dates.min().strftime("%b")
-    end_month = dates.max().strftime("%b")
+    # Get start and end for minimal x-axis labels
+    start_label = "Start"
+    end_label = "End"
+    min_x = min(dates) if dates else 0
+    max_x = max(dates) if dates else 1
 
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
@@ -751,8 +805,8 @@ def create_user_sparkline(daily_activity: pd.Series, user_name: str) -> go.Figur
             "zeroline": False,
             "showticklabels": True,
             "tickmode": "array",
-            "tickvals": [dates.min(), dates.max()],
-            "ticktext": [start_month, end_month],
+            "tickvals": [min_x, max_x],
+            "ticktext": [start_label, end_label],
             "tickfont": {"color": COLORS["text_muted"], "size": 9},
             "side": "bottom",
         },
@@ -768,13 +822,13 @@ def create_user_sparkline(daily_activity: pd.Series, user_name: str) -> go.Figur
     return fig
 
 
-def create_user_hourly_sparkline(hourly_activity: pd.Series, user_name: str) -> go.Figure:
+def create_user_hourly_sparkline(hourly_activity: pl.Series, user_name: str) -> go.Figure:
     """Create a minimal bar sparkline chart showing hourly activity pattern (0-23)."""
     if len(hourly_activity) == 0:
         return go.Figure()
 
     hours = list(range(24))
-    values = [hourly_activity.get(h, 0) for h in hours]
+    values = hourly_activity.to_list()
 
     # Create gradient-like effect with varying opacity
     max_val = max(values) if max(values) > 0 else 1
@@ -821,7 +875,7 @@ def create_user_hourly_sparkline(hourly_activity: pd.Series, user_name: str) -> 
 
 
 def create_wordcloud_chart(
-    word_frequencies: "pd.Series",
+    word_frequencies: "pl.DataFrame",
     width: int = 1200,
     height: int = 500,
     max_words: int = 150,
@@ -833,7 +887,7 @@ def create_wordcloud_chart(
     Uses the project's dark aesthetic with accent colors.
 
     Args:
-        word_frequencies: pd.Series with words as index, counts as values
+        word_frequencies: pl.DataFrame with columns 'word' and 'count'
         width: Image width in pixels
         height: Image height in pixels
         max_words: Maximum number of words to display
@@ -851,8 +905,9 @@ def create_wordcloud_chart(
     if word_frequencies is None or len(word_frequencies) == 0:
         return ""
 
-    # Convert Series to dict for wordcloud
-    freq_dict = word_frequencies.head(max_words * 2).to_dict()  # Get extra for filtering
+    # Convert DataFrame to dict for wordcloud
+    top_words = word_frequencies.head(max_words * 2)  # Get extra for filtering
+    freq_dict = dict(zip(top_words["word"].to_list(), top_words["count"].to_list(), strict=True))
 
     if not freq_dict:
         return ""

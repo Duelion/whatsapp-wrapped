@@ -22,6 +22,9 @@ output/**/*.png
 output/**/*.jpg
 output/**/*.mp4
 
+# Development/Utility Scripts
+update_sample.py
+
 # Python
 __pycache__/
 *.py[cod]
