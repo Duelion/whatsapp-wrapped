@@ -23,7 +23,6 @@ classifiers = [
 dependencies = [
     "polars>=1.0.0",
     "plotly>=5.14.0",
-    "plotly-calplot>=0.1.20",
     "wordcloud>=1.9.0",
     "pillow>=10.0.0",
     "python-dateutil>=2.8.0",

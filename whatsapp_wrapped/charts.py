@@ -569,9 +569,13 @@ def create_monthly_chart(messages_by_month: pl.DataFrame) -> go.Figure:
 
 
 def create_calendar_heatmap(messages_by_date: pl.DataFrame) -> go.Figure:
-    """Create a calendar heatmap showing daily message activity in a calendar grid format."""
-    import pandas as pd  # Required by plotly_calplot library
-    from plotly_calplot import calplot
+    """Create a calendar heatmap showing daily message activity in a calendar grid format.
+
+    Uses pure Plotly with Polars - no pandas or plotly-calplot dependency needed.
+    This avoids numpy binary incompatibility issues in Google Colab.
+    """
+    from datetime import date as date_type
+    from datetime import timedelta
 
     if len(messages_by_date) == 0:
         # Return empty figure if no data
@@ -579,36 +583,103 @@ def create_calendar_heatmap(messages_by_date: pl.DataFrame) -> go.Figure:
         fig.update_layout(**get_modern_layout(title="", height=290))
         return fig
 
-    # Convert polars to pandas for plotly-calplot compatibility
-    # Note: plotly_calplot requires pandas DataFrame, so this conversion is necessary
+    # Get dates and counts from the DataFrame
     dates = messages_by_date["date"].to_list()
     counts = messages_by_date["count"].to_list()
-    df = pd.DataFrame({"date": pd.to_datetime(dates), "value": counts})
 
-    # Create the calendar heatmap using plotly-calplot
-    # Optimized for single-year display
-    fig = calplot(
-        df,
-        x="date",
-        y="value",
-        years_title=False,
-        gap=5,  # Increased gap for better visual separation
-        name="Messages",
-        month_lines_width=2,
-        month_lines_color=COLORS["border"],
-        colorscale=[
-            [0, COLORS["background"]],
-            [0.1, "rgba(59, 130, 246, 0.2)"],  # More visible low values
-            [0.3, "rgba(59, 130, 246, 0.5)"],
-            [0.6, "rgba(59, 130, 246, 0.8)"],
-            [0.8, COLORS["blue"]],
-            [1, COLORS["violet"]],
-        ],
-        showscale=False,
-        dark_theme=True,  # Enable dark theme if available
+    # Create a dict for quick lookup
+    date_counts = dict(zip(dates, counts, strict=False))
+
+    # Determine date range
+    min_date = min(dates)
+    max_date = max(dates)
+
+    # Find the first Sunday on or before min_date (week starts on Sunday for calendar)
+    # weekday(): Monday=0, Sunday=6
+    days_since_sunday = (min_date.weekday() + 1) % 7
+    start_date = min_date - timedelta(days=days_since_sunday)
+
+    # Find the last Saturday on or after max_date
+    days_until_saturday = (5 - max_date.weekday()) % 7
+    end_date = max_date + timedelta(days=days_until_saturday)
+
+    # Build the calendar grid
+    # x = week number, y = day of week (0=Sun, 6=Sat)
+    x_weeks = []
+    y_days = []
+    z_values = []
+    hover_texts = []
+    actual_dates = []
+
+    current_date = start_date
+    week_num = 0
+
+    while current_date <= end_date:
+        day_of_week = (current_date.weekday() + 1) % 7  # Convert to Sun=0, Sat=6
+
+        x_weeks.append(week_num)
+        y_days.append(day_of_week)
+
+        count = date_counts.get(current_date, 0)
+        z_values.append(count)
+        actual_dates.append(current_date)
+
+        # Format hover text
+        date_str = current_date.strftime("%b %d, %Y")
+        hover_texts.append(f"<b>{date_str}</b>: {count:,} msgs")
+
+        # Move to next day
+        current_date += timedelta(days=1)
+        if day_of_week == 6:  # Saturday, start new week
+            week_num += 1
+
+    # Create heatmap
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Heatmap(
+            x=x_weeks,
+            y=y_days,
+            z=z_values,
+            colorscale=[
+                [0, COLORS["background"]],
+                [0.1, "rgba(59, 130, 246, 0.2)"],
+                [0.3, "rgba(59, 130, 246, 0.5)"],
+                [0.6, "rgba(59, 130, 246, 0.8)"],
+                [0.8, COLORS["blue"]],
+                [1, COLORS["violet"]],
+            ],
+            showscale=False,
+            hovertext=hover_texts,
+            hovertemplate="%{hovertext}<extra></extra>",
+            xgap=4,
+            ygap=4,
+        )
     )
 
-    # Apply dark theme styling to match other charts
+    # Generate month labels for x-axis
+    month_ticks = []
+    month_labels = []
+    current_date = start_date
+    week_num = 0
+    last_month = None
+
+    while current_date <= end_date:
+        current_month = current_date.month
+        if current_month != last_month:
+            month_ticks.append(week_num)
+            month_labels.append(current_date.strftime("%b"))
+            last_month = current_month
+
+        # Move to next week (jump by 7 days)
+        day_of_week = (current_date.weekday() + 1) % 7
+        if day_of_week == 6:
+            week_num += 1
+        current_date += timedelta(days=1)
+
+    # Day labels (Sun to Sat, but only show Mon, Wed, Fri for compactness)
+    day_labels = ["", "Mon", "", "Wed", "", "Fri", ""]
+
     fig.update_layout(
         paper_bgcolor=COLORS["paper"],
         plot_bgcolor=COLORS["background"],
@@ -617,33 +688,33 @@ def create_calendar_heatmap(messages_by_date: pl.DataFrame) -> go.Figure:
             "color": COLORS["text"],
             "size": 12,
         },
-        title="",  # Remove title - section header already provides context
-        height=220,  # Compact height - 7 days don't need much vertical space
-        margin={"l": 50, "r": 20, "t": 30, "b": 40},  # Minimal margins
+        title="",
+        height=220,
+        margin={"l": 50, "r": 20, "t": 30, "b": 40},
+        xaxis={
+            "tickmode": "array",
+            "tickvals": month_ticks,
+            "ticktext": month_labels,
+            "tickfont": {"color": COLORS["text_secondary"], "size": 10},
+            "showgrid": False,
+            "zeroline": False,
+            "side": "top",
+        },
+        yaxis={
+            "tickmode": "array",
+            "tickvals": list(range(7)),
+            "ticktext": day_labels,
+            "tickfont": {"color": COLORS["text_secondary"], "size": 10},
+            "showgrid": False,
+            "zeroline": False,
+            "autorange": "reversed",  # Sun at top, Sat at bottom
+        },
         hoverlabel={
             "bgcolor": COLORS["surface"],
             "bordercolor": COLORS["border"],
             "font": {"color": COLORS["text"], "size": 12},
         },
     )
-
-    # Update all xaxis and yaxis to match dark theme with better readability
-    for key in fig.layout:
-        if key.startswith("xaxis") or key.startswith("yaxis"):
-            axis = fig.layout[key]
-            if axis:
-                axis.update(
-                    gridcolor=COLORS["grid"],
-                    linecolor=COLORS["grid"],
-                    tickfont={"color": COLORS["text_secondary"], "size": 10},
-                    title_font={"color": COLORS["text_secondary"], "size": 11},
-                )
-
-    # Customize hover template for cleaner tooltips
-    for trace in fig.data:
-        if hasattr(trace, "hovertemplate"):
-            # Replace the default ugly tooltip with a clean one
-            trace.hovertemplate = "<b>%{x|%b %d}</b>: %{z} msgs<extra></extra>"
 
     return fig
 
