@@ -181,8 +181,19 @@ def _load_from_txt(txt_path: Path) -> str:
     raise ValueError("Could not decode chat file with any supported encoding")
 
 
-def _parse_timestamp(timestamp_str: str) -> datetime | None:
-    """Try to parse a timestamp string using various formats."""
+def _parse_timestamp(timestamp_str: str, date_formats: list[str] | None = None) -> datetime | None:
+    """Try to parse a timestamp string using various formats.
+    
+    Args:
+        timestamp_str: The timestamp string to parse
+        date_formats: List of date format strings to try. If None, uses DATE_FORMATS.
+    
+    Returns:
+        Parsed datetime object or None if parsing fails
+    """
+    if date_formats is None:
+        date_formats = DATE_FORMATS
+    
     timestamp_str = timestamp_str.strip()
     
     # Normalize AM/PM variations (e.g., "am" -> "AM", "11PM" -> "11 PM", "3:30 A.M." -> "3:30 AM")
@@ -203,7 +214,7 @@ def _parse_timestamp(timestamp_str: str) -> datetime | None:
             time_part = re.sub(r'\.', ':', time_part)  # Replace all dots in time with colons
             timestamp_str = parts[0] + parts[1] + time_part
 
-    for fmt in DATE_FORMATS:
+    for fmt in date_formats:
         try:
             return datetime.strptime(timestamp_str, fmt)
         except ValueError:

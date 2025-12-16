@@ -66,6 +66,10 @@ class ChatAnalytics:
     busiest_day: tuple[str, int]  # (date_str, count)
     quietest_day: tuple[str, int]
     longest_conversation: dict  # day with most back-and-forth
+    total_stickers: int  # total stickers sent
+
+    # Word cloud data
+    word_frequencies: pd.Series  # Word frequencies for word cloud
 
 
 def extract_emojis(text: str) -> list[str]:
@@ -135,6 +139,129 @@ def extract_emojis(text: str) -> list[str]:
             i += 1
     
     return result
+
+
+def extract_word_frequencies(df: pd.DataFrame, min_word_length: int = 3) -> pd.Series:
+    """
+    Extract word frequencies from all messages for word cloud generation.
+    
+    Uses multilingual stopwords and filters out common platform junk.
+    
+    Args:
+        df: DataFrame with 'message' column
+        min_word_length: Minimum word length to include (default: 3)
+    
+    Returns:
+        pd.Series with words as index and counts as values, sorted descending
+    """
+    import re
+    from stop_words import get_stop_words
+    
+    # Build combined stopwords from multiple languages
+    LANGUAGES = [
+        "english", "spanish", "portuguese", "french", "german",
+        "italian", "dutch", "russian", "turkish", "arabic"
+    ]
+    
+    stopwords = set()
+    for lang in LANGUAGES:
+        try:
+            stopwords.update(get_stop_words(lang))
+        except Exception:
+            # Skip if language not available
+            pass
+    
+    # Add common platform junk and WhatsApp-specific terms
+    stopwords.update({
+        "rt", "https", "http", "amp", "www", "com",
+        "omitted", "media", "image", "video", "audio", "sticker",
+        "deleted", "message", "attached", "gif", "document", "edited"
+    })
+    
+    # Add laughing expressions in multiple languages
+    # These often dominate word clouds and aren't meaningful content
+    laughing_bases = set()
+    
+    # Generate all repeat combinations for common laugh syllables
+    # This catches ja, jaja, jajaja... and jaj, jajaj, jajajaj... etc.
+    laugh_syllables = [
+        # Spanish/Portuguese
+        "ja", "je", "ji", "jo",
+        "jaj", "jej", "jij",
+        "aja", "aje", "aji",
+        # English
+        "ha", "he", "hi", "ho",
+        "hah", "heh", "hih",
+        "aha", "ahe", "ahi",
+        # Russian (transliterated)
+        "xa", "xe", "xi",
+        "xax", "xex",
+        "axa",
+        # German
+        "hö", "höh",
+        # Portuguese (Brazil)
+        "rs",
+        # Indonesian
+        "wk",
+        # Turkish
+        "sj", "sjs",
+        # Generic
+        "ah", "eh", "ih", "oh", "uh",
+    ]
+    
+    for base in laugh_syllables:
+        for repeat in range(1, 8):
+            laughing_bases.add(base * repeat)
+    
+    # Single character repeats (k for Brazilian, h for Arabic, etc.)
+    for char in ["k", "h", "j", "w", "x", "5"]:
+        for i in range(2, 12):
+            laughing_bases.add(char * i)
+    
+    # Korean (can't repeat easily, add manually)
+    laughing_bases.update(["ㅋ" * i for i in range(2, 10)])
+    laughing_bases.update(["ㅎ" * i for i in range(2, 10)])
+    
+    # Common standalone expressions
+    laughing_bases.update([
+        # English internet slang
+        "lol", "lmao", "lmfao", "rofl", "roflmao", "lolol", "lololol",
+        "xd", "xdd", "xddd", "xdddd",
+        # French
+        "mdr", "ptdr", "xptdr", "mdrr", "mdrrr",
+        # Keyboard mashing
+        "asd", "asdf", "asdasd", "asdas", "asdfgh",
+        # Thai (5 = "ha" sound)
+        "555", "5555", "55555", "555555",
+    ])
+    
+    stopwords.update(laughing_bases)
+    
+    # Unicode-aware regex for letters only (no digits, no punctuation)
+    TOKEN_RE = re.compile(r"[^\W\d_]+", re.UNICODE)
+    
+    # Collect all words from text messages only
+    all_words = []
+    text_messages = df[df["message_type"] == "text"]["message"]
+    
+    for msg in text_messages:
+        if pd.isna(msg):
+            continue
+        # Tokenize and filter
+        tokens = TOKEN_RE.findall(str(msg).lower())
+        filtered = [
+            t for t in tokens 
+            if len(t) >= min_word_length and t not in stopwords
+        ]
+        all_words.extend(filtered)
+    
+    # Create frequency Series using pandas (consistent with emoji frequency code)
+    if not all_words:
+        return pd.Series(dtype=int)
+    
+    word_freq = pd.Series(all_words).value_counts()
+    
+    return word_freq
 
 
 def get_word_count(text: str) -> int:
@@ -310,6 +437,9 @@ def analyze_chat(df: pd.DataFrame) -> ChatAnalytics:
     top_emojis_overall = list(emoji_freq.head(10).items())
     emoji_diversity = len(emoji_freq)
 
+    # Word frequencies for word cloud
+    word_frequencies = extract_word_frequencies(df)
+
     # Special stats
     busiest_date = messages_by_date.idxmax()
     busiest_day = (str(busiest_date), int(messages_by_date.max()))
@@ -329,11 +459,19 @@ def analyze_chat(df: pd.DataFrame) -> ChatAnalytics:
     )
     daily_stats["score"] = daily_stats["messages"] * daily_stats["participants"]
     best_day_idx = daily_stats["score"].idxmax()
+    
+    # Format date as human-readable
+    from datetime import datetime
+    formatted_date = datetime.strptime(str(best_day_idx), "%Y-%m-%d").strftime("%B %d, %Y")
+    
     longest_conversation = {
-        "date": str(best_day_idx),
+        "date": formatted_date,
         "messages": int(daily_stats.loc[best_day_idx, "messages"]),
         "participants": int(daily_stats.loc[best_day_idx, "participants"]),
     }
+    
+    # Total stickers
+    total_stickers = int(message_type_counts.get("sticker", 0))
 
     return ChatAnalytics(
         total_messages=total_messages,
@@ -356,6 +494,8 @@ def analyze_chat(df: pd.DataFrame) -> ChatAnalytics:
         busiest_day=busiest_day,
         quietest_day=quietest_day,
         longest_conversation=longest_conversation,
+        total_stickers=total_stickers,
+        word_frequencies=word_frequencies,
     )
 
 
@@ -554,23 +694,23 @@ def calculate_badges(user_stats: list[UserStats]) -> dict[str, list[dict]]:
                 "detail": detail,
             })
     
-    # Streak Master - longest consecutive days
+    # Streak Master - longest consecutive days active
     award_max_badge(
         "streak_master",
         lambda u: u.longest_streak_days,
         lambda u, v: f"{int(v)} consecutive days",
-        min_value=1
+        min_value=0
     )
     
-    # Ghost - longest silence
+    # Ghost - longest silence between messages
     award_max_badge(
         "ghost",
         lambda u: u.longest_silence_days,
         lambda u, v: f"{int(v)} days silent",
-        min_value=1
+        min_value=0
     )
     
-    # Night Owl - calculate percentage of messages during night hours (0-6, 18-24)
+    # Night Owl - highest percentage of messages during night hours (0-6, 18-24)
     def night_percentage(user):
         night_hours = user.hourly_activity[list(range(0, 6)) + list(range(18, 24))].sum()
         total = user.hourly_activity.sum()
@@ -580,10 +720,10 @@ def calculate_badges(user_stats: list[UserStats]) -> dict[str, list[dict]]:
         "night_owl",
         night_percentage,
         lambda u, v: f"{int(v)}% night messages",
-        min_value=40  # At least 40% night messages
+        min_value=0
     )
     
-    # Early Bird - calculate percentage of messages during morning hours (6-12)
+    # Early Bird - highest percentage of messages during morning hours (6-12)
     def morning_percentage(user):
         morning_hours = user.hourly_activity[list(range(6, 12))].sum()
         total = user.hourly_activity.sum()
@@ -593,7 +733,7 @@ def calculate_badges(user_stats: list[UserStats]) -> dict[str, list[dict]]:
         "early_bird",
         morning_percentage,
         lambda u, v: f"{int(v)}% morning messages",
-        min_value=30  # At least 30% morning messages
+        min_value=0
     )
     
     # Emoji King - most emojis used
@@ -601,63 +741,63 @@ def calculate_badges(user_stats: list[UserStats]) -> dict[str, list[dict]]:
         "emoji_king",
         lambda u: u.emoji_count,
         lambda u, v: f"{int(v):,} emojis used",
-        min_value=10
+        min_value=0
     )
     
-    # Shutterbug - most images
+    # Shutterbug - most images shared
     award_max_badge(
         "shutterbug",
         lambda u: u.message_types.get("image", 0),
         lambda u, v: f"{int(v):,} images shared",
-        min_value=5
+        min_value=0
     )
     
-    # Director - most videos
+    # Director - most videos shared
     award_max_badge(
         "director",
         lambda u: u.message_types.get("video", 0),
         lambda u, v: f"{int(v):,} videos shared",
-        min_value=3
+        min_value=0
     )
     
-    # Sticker Maniac - most stickers
+    # Sticker Maniac - most stickers sent
     award_max_badge(
         "sticker_maniac",
         lambda u: u.message_types.get("sticker", 0),
         lambda u, v: f"{int(v):,} stickers sent",
-        min_value=5
+        min_value=0
     )
     
-    # Voice Actor - most audio messages
+    # Voice Actor - most audio/voice messages
     award_max_badge(
         "voice_actor",
         lambda u: u.message_types.get("audio", 0),
         lambda u, v: f"{int(v):,} voice messages",
-        min_value=5
+        min_value=0
     )
     
-    # Link Sharer - most links
+    # Link Sharer - most links shared
     award_max_badge(
         "link_sharer",
         lambda u: u.message_types.get("link", 0),
         lambda u, v: f"{int(v):,} links shared",
-        min_value=5
+        min_value=0
     )
     
-    # Novelist - longest average message length (only text messages)
+    # Novelist - longest average message length
     award_max_badge(
         "novelist",
         lambda u: u.avg_message_length,
         lambda u, v: f"{int(v)} chars/message",
-        min_value=100  # At least 100 chars average
+        min_value=0
     )
     
-    # Speedster - shortest average message length (only text messages, exclude very short)
+    # Speedster - shortest average message length
     award_min_badge(
         "speedster",
         lambda u: u.avg_message_length,
         lambda u, v: f"{int(v)} chars/message",
-        threshold=1  # Must have at least some text
+        threshold=0
     )
     
     return badges_by_user

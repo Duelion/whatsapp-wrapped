@@ -131,18 +131,23 @@ def chart_to_html(fig: go.Figure, include_plotlyjs: bool = False) -> str:
 
 
 def create_messages_by_hour_chart(messages_by_hour: pd.Series) -> go.Figure:
-    """Create a bar chart showing message distribution by hour."""
+    """Create a bar chart showing message distribution by hour with gradient colors."""
     hours = list(range(24))
     values = [messages_by_hour.get(h, 0) for h in hours]
     
     total = sum(values) if values else 1
     percentages = [(v / total * 100) for v in values]
 
-    # Create gradient-like effect with varying opacity
-    max_val = max(values) if values else 1
-    colors = [
-        f"rgba(59, 130, 246, {0.4 + 0.6 * (v / max_val)})" for v in values
-    ]
+    # Create gradient from blue (#3b82f6) to cyan (#06b6d4) based on hour position
+    n = len(hours)
+    colors = []
+    for i in range(n):
+        ratio = i / max(n - 1, 1)
+        # Interpolate: blue (59, 130, 246) -> cyan (6, 182, 212)
+        r = int(59 + (6 - 59) * ratio)
+        g = int(130 + (182 - 130) * ratio)
+        b = int(246 + (212 - 246) * ratio)
+        colors.append(f"rgb({r}, {g}, {b})")
 
     fig = go.Figure()
 
@@ -150,10 +155,9 @@ def create_messages_by_hour_chart(messages_by_hour: pd.Series) -> go.Figure:
         go.Bar(
             x=hours,
             y=values,
-            marker_color=colors,
-            marker_line_width=0,
+            marker={"color": colors, "line": {"width": 0}},
             customdata=percentages,
-            hovertemplate="%{x}:00<br><b>%{y:,}</b> messages<br>(%{customdata:.1f}% of total)<extra></extra>",
+            hovertemplate="<b>%{x}:00</b>: %{y:,} msgs (%{customdata:.1f}%)<extra></extra>",
         )
     )
 
@@ -176,7 +180,7 @@ def create_messages_by_hour_chart(messages_by_hour: pd.Series) -> go.Figure:
 
 
 def create_messages_by_weekday_chart(messages_by_weekday: pd.Series) -> go.Figure:
-    """Create a bar chart showing message distribution by day of week."""
+    """Create a bar chart showing message distribution by day of week with gradient colors."""
     days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     short_days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     values = [messages_by_weekday.get(d, 0) for d in days]
@@ -184,11 +188,16 @@ def create_messages_by_weekday_chart(messages_by_weekday: pd.Series) -> go.Figur
     total = sum(values) if values else 1
     percentages = [(v / total * 100) for v in values]
 
-    # Create gradient based on values
-    max_val = max(values) if values else 1
-    colors = [
-        f"rgba(139, 92, 246, {0.4 + 0.6 * (v / max_val)})" for v in values
-    ]
+    # Create gradient from violet (#8b5cf6) to rose (#f43f5e) based on day position
+    n = len(days)
+    colors = []
+    for i in range(n):
+        ratio = i / max(n - 1, 1)
+        # Interpolate: violet (139, 92, 246) -> rose (244, 63, 94)
+        r = int(139 + (244 - 139) * ratio)
+        g = int(92 + (63 - 92) * ratio)
+        b = int(246 + (94 - 246) * ratio)
+        colors.append(f"rgb({r}, {g}, {b})")
 
     fig = go.Figure()
 
@@ -196,10 +205,9 @@ def create_messages_by_weekday_chart(messages_by_weekday: pd.Series) -> go.Figur
         go.Bar(
             x=short_days,
             y=values,
-            marker_color=colors,
-            marker_line_width=0,
+            marker={"color": colors, "line": {"width": 0}},
             customdata=percentages,
-            hovertemplate="%{x}<br><b>%{y:,}</b> messages<br>(%{customdata:.1f}% of week)<extra></extra>",
+            hovertemplate="<b>%{x}</b>: %{y:,} msgs (%{customdata:.1f}%)<extra></extra>",
         )
     )
 
@@ -209,7 +217,7 @@ def create_messages_by_weekday_chart(messages_by_weekday: pd.Series) -> go.Figur
         yaxis_title="Messages",
         show_legend=False,
     )
-    layout["bargap"] = 0.2
+    layout["bargap"] = 0.25
 
     fig.update_layout(**layout)
 
@@ -237,17 +245,38 @@ def create_timeline_chart(messages_by_date: pd.Series) -> go.Figure:
             mode="lines",
             name="Trend",
             customdata=values,  # Store actual daily values for hover
-            hovertemplate="%{x|%b %d, %Y}<br><b>%{customdata:,}</b> messages<extra></extra>",
+            hovertemplate="<b>%{x|%b %d}</b>: %{customdata:,} msgs<extra></extra>",
         )
     )
 
     layout = get_modern_layout(
         title="",  # No title - will be added in HTML
-        xaxis_title="Date",
+        xaxis_title="",  # Remove axis title - months are self-explanatory
         yaxis_title="Messages",
         height=350,
         show_legend=False,  # Single trace, no legend needed
     )
+    
+    # Generate month ticks for the date range
+    min_date = dates.min()
+    max_date = dates.max()
+    
+    # Create tick values for the 1st of each month in the range
+    month_ticks = pd.date_range(
+        start=min_date.replace(day=1),
+        end=max_date,
+        freq="MS"  # Month Start
+    )
+    
+    # Format as abbreviated month names (Jan, Feb, etc.)
+    tick_labels = [d.strftime("%b") for d in month_ticks]
+    
+    # Update x-axis with month ticks, slanted for readability
+    layout["xaxis"]["tickmode"] = "array"
+    layout["xaxis"]["tickvals"] = month_ticks
+    layout["xaxis"]["ticktext"] = tick_labels
+    layout["xaxis"]["tickangle"] = -45  # Slant for better fit
+    layout["margin"]["b"] = 70  # Extra bottom margin for slanted labels
 
     fig.update_layout(**layout)
 
@@ -255,7 +284,7 @@ def create_timeline_chart(messages_by_date: pd.Series) -> go.Figure:
 
 
 def create_top_users_chart(top_messagers: list[tuple[str, int]]) -> go.Figure:
-    """Create a horizontal bar chart of all message senders."""
+    """Create a stylish horizontal bar chart with gradient colors."""
     users = [u[0] for u in top_messagers]
     counts = [u[1] for u in top_messagers]
     
@@ -267,12 +296,17 @@ def create_top_users_chart(top_messagers: list[tuple[str, int]]) -> go.Figure:
     counts = counts[::-1]
     percentages = percentages[::-1]
 
-    # Create gradient based on position
     n = len(users)
-    colors = [
-        f"rgba(59, 130, 246, {0.4 + 0.6 * (i / max(n - 1, 1))})" 
-        for i in range(n)
-    ]
+    
+    # Create gradient colors from blue to violet based on position
+    colors = []
+    for i in range(n):
+        ratio = i / max(n - 1, 1)
+        # Interpolate between blue (#3b82f6) and violet (#8b5cf6)
+        r = int(59 + (139 - 59) * ratio)
+        g = int(130 + (92 - 130) * ratio)
+        b = 246  # Both colors have same blue component
+        colors.append(f"rgb({r}, {g}, {b})")
 
     fig = go.Figure()
 
@@ -281,13 +315,15 @@ def create_top_users_chart(top_messagers: list[tuple[str, int]]) -> go.Figure:
             x=counts,
             y=users,
             orientation="h",
-            marker_color=colors,
-            marker_line_width=0,
-            text=[f"{c:,}" for c in counts],
+            marker={
+                "color": colors,
+                "line": {"width": 0},
+            },
+            text=[f"{c:,} ({p:.1f}%)" for c, p in zip(counts, percentages)],
             textposition="outside",
-            textfont={"color": COLORS["text_muted"], "size": 11},
+            textfont={"color": COLORS["text_muted"], "size": 10},
             customdata=percentages,
-            hovertemplate="%{y}<br><b>%{x:,}</b> messages<br>(%{customdata:.1f}% of total)<extra></extra>",
+            hovertemplate="<b>%{y}</b>: %{x:,} msgs (%{customdata:.1f}%)<extra></extra>",
         )
     )
 
@@ -295,10 +331,12 @@ def create_top_users_chart(top_messagers: list[tuple[str, int]]) -> go.Figure:
         title="",  # No title - will be added in HTML
         xaxis_title="Messages",
         yaxis_title="",
-        height=50 + 40 * len(users),
+        height=50 + 45 * len(users),
         show_legend=False,
     )
-    layout["margin"]["l"] = 120
+    layout["margin"]["l"] = 140
+    layout["margin"]["r"] = 80  # More space for percentage labels
+    layout["bargap"] = 0.3
 
     fig.update_layout(**layout)
 
@@ -354,7 +392,7 @@ def create_message_types_chart(message_type_counts: pd.Series) -> go.Figure:
             text=text_labels,
             insidetextorientation="radial",
             textfont={"color": COLORS["text"], "size": 12, "family": "Geist, sans-serif"},
-            hovertemplate="<b>%{label}</b><br>%{value:,} messages<br>%{percent}<extra></extra>",
+            hovertemplate="<b>%{label}</b>: %{value:,} (%{percent})<extra></extra>",
         )
     )
 
@@ -417,7 +455,7 @@ def create_hourly_heatmap(hourly_activity_by_user: pd.DataFrame, max_users: int 
             ],
             showscale=False,
             customdata=customdata,
-            hovertemplate="<b>%{y}</b><br>%{x}:00<br><b>%{customdata}</b> messages<br>Activity: %{z:.0%}<extra></extra>",
+            hovertemplate="<b>%{y}</b> @ %{x}:00: %{customdata} msgs<extra></extra>",
             xgap=3,  # Add gap between cells
             ygap=3,
         )
@@ -471,7 +509,7 @@ def create_monthly_chart(messages_by_month: pd.Series) -> go.Figure:
             marker_color=colors,
             marker_line_width=0,
             customdata=percentages,
-            hovertemplate="%{x}<br><b>%{y:,}</b> messages<br>(%{customdata:.1f}% of total)<extra></extra>",
+            hovertemplate="<b>%{x}</b>: %{y:,} msgs (%{customdata:.1f}%)<extra></extra>",
         )
     )
 
@@ -559,6 +597,12 @@ def create_calendar_heatmap(messages_by_date: pd.Series) -> go.Figure:
                     title_font={"color": COLORS["text_secondary"], "size": 11},
                 )
     
+    # Customize hover template for cleaner tooltips
+    for trace in fig.data:
+        if hasattr(trace, 'hovertemplate'):
+            # Replace the default ugly tooltip with a clean one
+            trace.hovertemplate = "<b>%{x|%b %d}</b>: %{z} msgs<extra></extra>"
+    
     return fig
 
 
@@ -631,7 +675,7 @@ def create_emoji_chart(top_emojis: list[tuple[str, int]], max_emojis: int = 10) 
             text=[f"{c:,}" for c in counts],
             textposition="outside",
             textfont={"color": COLORS["text_muted"], "size": 11},
-            hovertemplate="<b>%{customdata[0]}</b> - %{customdata[1]}<br>Used <b>%{x:,}</b> times<extra></extra>",
+            hovertemplate="%{customdata[1]} %{customdata[0]}: %{x:,} uses<extra></extra>",
             customdata=[[rank, emoji] for rank, emoji in zip(rankings, emojis)],
         )
     )
@@ -694,7 +738,7 @@ def create_user_sparkline(daily_activity: pd.Series, user_name: str) -> go.Figur
             },
             fill="tozeroy",
             fillcolor="rgba(59, 130, 246, 0.1)",
-            hovertemplate="%{x|%b %d}<br><b>%{y:.1f}</b> messages (3-day avg)<extra></extra>",
+            hovertemplate="<b>%{x|%b %d}</b>: %{y:.0f} msgs<extra></extra>",
         )
     )
     
@@ -724,7 +768,7 @@ def create_user_sparkline(daily_activity: pd.Series, user_name: str) -> go.Figur
             "zeroline": False,
         },
         showlegend=False,
-        hovermode="x unified",
+        hovermode="closest",
     )
     
     return fig
@@ -752,7 +796,7 @@ def create_user_hourly_sparkline(hourly_activity: pd.Series, user_name: str) -> 
             y=values,
             marker_color=colors,
             marker_line_width=0,
-            hovertemplate="%{x}:00<br><b>%{y}</b> messages<extra></extra>",
+            hovertemplate="<b>%{x}:00</b>: %{y} msgs<extra></extra>",
         )
     )
     
@@ -784,6 +828,82 @@ def create_user_hourly_sparkline(hourly_activity: pd.Series, user_name: str) -> 
     return fig
 
 
+def create_wordcloud_chart(
+    word_frequencies: "pd.Series",
+    width: int = 1200,
+    height: int = 500,
+    max_words: int = 150,
+) -> str:
+    """
+    Create a word cloud visualization as a base64-encoded PNG.
+    
+    Uses the project's dark aesthetic with accent colors.
+    
+    Args:
+        word_frequencies: pd.Series with words as index, counts as values
+        width: Image width in pixels
+        height: Image height in pixels
+        max_words: Maximum number of words to display
+    
+    Returns:
+        Base64-encoded PNG string (data URI format) or empty string if no data
+    """
+    import base64
+    import random
+    from io import BytesIO
+
+    from wordcloud import WordCloud
+    
+    if word_frequencies is None or len(word_frequencies) == 0:
+        return ""
+    
+    # Convert Series to dict for wordcloud
+    freq_dict = word_frequencies.head(max_words * 2).to_dict()  # Get extra for filtering
+    
+    if not freq_dict:
+        return ""
+    
+    # Accent colors from the theme (matching ACCENT_COLORS)
+    WORDCLOUD_COLORS = [
+        "#3b82f6",  # blue
+        "#8b5cf6",  # violet
+        "#06b6d4",  # cyan
+        "#f59e0b",  # amber
+        "#22c55e",  # green
+        "#f43f5e",  # rose
+    ]
+    
+    def color_func(word, font_size, position, orientation, random_state=None, **kwargs):
+        """Custom color function using theme accent colors."""
+        return random.choice(WORDCLOUD_COLORS)
+    
+    # Create word cloud with dark background
+    wc = WordCloud(
+        width=width,
+        height=height,
+        background_color=COLORS["background"],  # #09090b
+        color_func=color_func,
+        max_words=max_words,
+        min_font_size=12,
+        max_font_size=120,
+        prefer_horizontal=0.8,
+        relative_scaling=0.5,
+        margin=10,
+        mode="RGB",
+    )
+    
+    # Generate the word cloud
+    wc.generate_from_frequencies(freq_dict)
+    
+    # Convert to base64 PNG
+    buffer = BytesIO()
+    wc.to_image().save(buffer, format="PNG", optimize=True)
+    buffer.seek(0)
+    img_base64 = base64.b64encode(buffer.read()).decode("utf-8")
+    
+    return f"data:image/png;base64,{img_base64}"
+
+
 class ChartCollection:
     """Collection of all charts for a report."""
 
@@ -808,6 +928,9 @@ class ChartCollection:
         else:
             self.emojis = None
 
+        # Word cloud (returns base64 PNG data URI, not Plotly)
+        self.wordcloud = create_wordcloud_chart(analytics.word_frequencies)
+
     def to_html_dict(self, include_plotlyjs_first: bool = True) -> dict[str, str]:
         """Convert all charts to HTML divs."""
         # top_users is the first chart in the document (in "The Voices Behind the Chat" section)
@@ -826,5 +949,11 @@ class ChartCollection:
             charts["emojis"] = chart_to_html(self.emojis, False)
         else:
             charts["emojis"] = ""
+
+        # Word cloud is already a base64 data URI, wrap in img tag
+        if self.wordcloud:
+            charts["wordcloud"] = f'<img src="{self.wordcloud}" alt="Word Cloud" style="width: 100%; height: auto; border-radius: var(--radius-md);">'
+        else:
+            charts["wordcloud"] = ""
 
         return charts

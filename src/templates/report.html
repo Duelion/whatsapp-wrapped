@@ -1543,8 +1543,28 @@
                     <div class="highlight-value">{{ analytics.emoji_diversity }} unique</div>
                     <div class="highlight-detail">Different emojis used</div>
                 </div>
+                <div class="highlight-card">
+                    <div class="highlight-icon">🎨</div>
+                    <div class="highlight-label">Total Stickers</div>
+                    <div class="highlight-value">{{ "{:,}".format(analytics.total_stickers) }}</div>
+                    <div class="highlight-detail">Stickers shared in chat</div>
+                </div>
             </div>
         </section>
+
+        <!-- Word Cloud Section -->
+        {% if charts.wordcloud %}
+        <section class="section">
+            <div class="section-header">
+                <h2 class="section-title">Most Used Words</h2>
+                <p class="section-subtitle">The vocabulary that defines your conversations</p>
+            </div>
+
+            <div class="chart-container">
+                {{ charts.wordcloud | safe }}
+            </div>
+        </section>
+        {% endif %}
 
         <!-- Top Contributors Section -->
         <section class="section">

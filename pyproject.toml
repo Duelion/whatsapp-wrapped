@@ -38,6 +38,7 @@ dependencies = [
     "playwright>=1.40.0",
     "emojis>=0.7.0",
     "nest-asyncio>=1.5.0",
+    "stop-words>=2018.7.23",
 ]
 
 [project.scripts]

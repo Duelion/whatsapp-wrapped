@@ -110,7 +110,7 @@ def generate_html_report(
         user_sparklines=user_sparklines,
         user_hourly_sparklines=user_hourly_sparklines,
         user_badges=user_badges,
-        generation_date=datetime.now().strftime("%Y-%m-%d %H:%M"),
+        generation_date=datetime.now().strftime("%B %d, %Y at %I:%M %p"),
         formatted_hour=formatted_hour,
         hour_emoji=hour_emoji,
     )
@@ -372,7 +372,7 @@ def generate_full_report(
         user_sparklines=user_sparklines,
         user_hourly_sparklines=user_hourly_sparklines,
         user_badges=user_badges,
-        generation_date=datetime.now().strftime("%Y-%m-%d %H:%M"),
+        generation_date=datetime.now().strftime("%B %d, %Y at %I:%M %p"),
         fixed_layout=fixed_layout,
         formatted_hour=formatted_hour,
         hour_emoji=hour_emoji,
