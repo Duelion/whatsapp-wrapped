@@ -7,7 +7,7 @@
     {% else %}
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     {% endif %}
-    <title>WhatsApp Wrapped — {{ metadata.filename }}</title>
+    <title>WhatsApp Wrapped — {{ report_title or metadata.filename }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -1467,7 +1467,7 @@
             <div class="header-content">
                 <div class="header-badge">WhatsApp Wrapped</div>
                 <h1 class="title">
-                    <span class="title-line title-name">{{ metadata.filename }}</span>
+                    <span class="title-line title-name">{{ report_title or metadata.filename }}</span>
                 </h1>
                 <div class="subtitle">
                     <span class="subtitle-date">{{ metadata.date_range_start.strftime('%b %d, %Y') }}</span>

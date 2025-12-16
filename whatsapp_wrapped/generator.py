@@ -45,7 +45,10 @@ def get_template_dir() -> Path:
 
 
 def _render_report_template(
-    report_data: ReportData, fixed_layout: bool = False, quiet: bool = False
+    report_data: ReportData,
+    fixed_layout: bool = False,
+    quiet: bool = False,
+    report_title: str | None = None,
 ) -> str:
     """
     Render the report HTML template with the given data.
@@ -54,6 +57,7 @@ def _render_report_template(
         report_data: ReportData containing all report information
         fixed_layout: Whether to force desktop layout on all devices
         quiet: Whether to suppress progress messages
+        report_title: Custom title for the report (optional, defaults to filename)
 
     Returns:
         Rendered HTML content as string
@@ -81,6 +85,7 @@ def _render_report_template(
         fixed_layout=fixed_layout,
         formatted_hour=report_data.formatted_hour,
         hour_emoji=report_data.hour_emoji,
+        report_title=report_title,
     )
 
 
@@ -188,7 +193,9 @@ def generate_html_report(
     report_data = _generate_report_data(chat_file, year_filter, min_messages, quiet)
 
     # Render template
-    html_content = _render_report_template(report_data, fixed_layout=False, quiet=quiet)
+    html_content = _render_report_template(
+        report_data, fixed_layout=False, quiet=quiet, report_title=report_name
+    )
 
     # Determine output path
     if output_path is None:
@@ -397,7 +404,9 @@ def generate_full_report(
     static_path = output_dir / f"{stem}_report_static.html" if generate_static else None
 
     # Render HTML template
-    html_content = _render_report_template(report_data, fixed_layout=fixed_layout, quiet=quiet)
+    html_content = _render_report_template(
+        report_data, fixed_layout=fixed_layout, quiet=quiet, report_title=report_name
+    )
 
     # Write HTML file
     html_path.write_text(html_content, encoding="utf-8")
