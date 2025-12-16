@@ -77,11 +77,13 @@ For mobile-friendly reports that work without JavaScript, install the optional s
 # Install with static HTML support
 uv pip install -e ".[static]"
 
-# Then install Playwright browsers
-uv run playwright install webkit
+# Install Playwright's WebKit browser
+playwright install webkit
 ```
 
 The `--static` flag will then generate a pre-rendered HTML file perfect for mobile devices.
+
+> 💡 **Note:** On Linux, Playwright may require system dependencies. If you see a warning about missing dependencies, run: `sudo playwright install-deps webkit`
 
 ---
 
