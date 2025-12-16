@@ -1,0 +1,103 @@
+# WhatsApp Chat Data (IMPORTANT - Don't commit personal chats!)
+*.zip
+*.txt
+# Exception: Allow specific files if needed (currently none)
+data/raw/*.txt
+data/raw/*.zip
+data/processed/*.csv
+data/processed/*.json
+data/processed/*.pkl
+
+# Old git repository backup
+.git_old/
+
+# Generated Output Files (reports)
+/*.html
+/*.pdf
+# Exception: Allow the sample report in assets
+!sample_report.html
+output/**/*.html
+output/**/*.pdf
+output/**/*.png
+output/**/*.jpg
+output/**/*.mp4
+
+# Development/Utility Scripts
+update_sample.py
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+env/
+ENV/
+.venv/
+.venv
+
+# UV Package Manager
+.uv/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+*.ipynb
+# Exception: Allow the Google Colab notebook
+!whatsapp_wrapped.ipynb
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.code-workspace
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Config (if it contains sensitive info)
+config/local_config.yaml
+.env
+.env.local
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+
+# Debug files
+*.json
