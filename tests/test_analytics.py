@@ -2,7 +2,6 @@
 Integration tests for analytics module.
 """
 
-import polars as pl
 
 from whatsapp_wrapped.analytics import analyze_chat, calculate_user_stats
 
