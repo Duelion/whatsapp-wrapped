@@ -135,128 +135,6 @@ def generate_html_report(
     return output_path
 
 
-def generate_pdf_report(
-    html_path: str | Path,
-    output_path: str | Path | None = None,
-    quiet: bool = False,
-) -> Path:
-    """
-    Generate a PDF report from an existing HTML report using Playwright.
-
-    Uses a real WebKit browser to render the HTML, ensuring all CSS
-    and JavaScript (including Plotly charts) render correctly.
-
-    Args:
-        html_path: Path to the HTML report
-        output_path: Path for the output PDF file (optional)
-        quiet: Suppress progress messages
-
-    Returns:
-        Path to the generated PDF file
-    """
-    import asyncio
-
-    async def _generate_pdf() -> Path:
-        try:
-            from playwright.async_api import async_playwright
-        except ImportError:
-            print("[!] Playwright not installed. Install with: uv add playwright")
-            print("[!] Then run: playwright install webkit")
-            raise
-
-        html_path_resolved = Path(html_path).resolve()
-
-        if not html_path_resolved.exists():
-            raise FileNotFoundError(f"HTML file not found: {html_path_resolved}")
-
-        # Determine output path
-        nonlocal output_path
-        if output_path is None:
-            output_path = html_path_resolved.with_suffix(".pdf")
-        else:
-            output_path = Path(output_path).resolve()
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        if not quiet:
-            print("[*] Converting HTML to PDF with Playwright...")
-
-        async with async_playwright() as p:
-            # Launch headless WebKit
-            browser = await p.webkit.launch()
-
-            # Use a wider viewport for better layout
-            # device_scale_factor=2 for high-DPI/retina quality rendering
-            page = await browser.new_page(
-                viewport={"width": 1400, "height": 800},
-                device_scale_factor=2,
-            )
-
-            # Navigate to the HTML file
-            file_url = html_path_resolved.as_uri()
-            await page.goto(file_url)
-
-            # Wait for the page to fully load (including Plotly charts)
-            await page.wait_for_load_state("networkidle")
-
-            # Inject CSS to add padding inside the dark background
-            await page.add_style_tag(
-                content="""
-                body {
-                    padding: 40px 60px !important;
-                }
-                .container {
-                    max-width: 1200px !important;
-                    margin: 0 auto !important;
-                }
-            """
-            )
-
-            # Give Plotly a moment to finish rendering animations
-            await page.wait_for_timeout(1000)
-
-            # Measure the full page height for single-page PDF
-            page_height = await page.evaluate("document.documentElement.scrollHeight")
-
-            # Generate PDF as a single long page (no margins - padding is in the HTML)
-            await page.pdf(
-                path=str(output_path),
-                width="1400px",
-                height=f"{page_height}px",
-                print_background=True,  # Keep dark background
-                scale=1,
-                margin={
-                    "top": "0",
-                    "bottom": "0",
-                    "left": "0",
-                    "right": "0",
-                },
-            )
-
-            await browser.close()
-
-        if not quiet:
-            print(f"[+] PDF report saved: {output_path}")
-
-        return output_path
-
-    # Run the async function
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-
-    if loop is not None:
-        # Running inside an existing event loop (e.g., Jupyter/Colab)
-        # Use nest_asyncio to allow nested async calls
-        import nest_asyncio
-        nest_asyncio.apply()
-        # Use the existing loop instead of creating a new one
-        return loop.run_until_complete(_generate_pdf())
-    else:
-        # No existing loop - create a new one (normal CLI usage)
-        return asyncio.run(_generate_pdf())
-
-
 def generate_static_html(
     html_path: str | Path,
     output_path: str | Path | None = None,
@@ -388,13 +266,12 @@ def generate_full_report(
     year_filter: int | None = None,
     min_messages: int = 2,
     report_name: str | None = None,
-    generate_pdf: bool = True,
     generate_static: bool = False,
     fixed_layout: bool = False,
     quiet: bool = False,
-) -> tuple[Path, Path | None, Path | None]:
+) -> tuple[Path, Path | None]:
     """
-    Generate HTML and optionally PDF/static reports from a WhatsApp chat export.
+    Generate HTML and optionally static reports from a WhatsApp chat export.
 
     Args:
         chat_file: Path to the WhatsApp export (.zip or .txt)
@@ -402,13 +279,12 @@ def generate_full_report(
         year_filter: Filter messages to a specific year (optional)
         min_messages: Minimum messages per user to include
         report_name: Custom name for the report file (optional, defaults to chat filename)
-        generate_pdf: Whether to also generate PDF
         generate_static: Whether to also generate static HTML (no JavaScript)
         fixed_layout: Force desktop layout on all devices
         quiet: Suppress progress messages
 
     Returns:
-        Tuple of (html_path, pdf_path or None, static_path or None)
+        Tuple of (html_path, static_path or None)
     """
     chat_file = Path(chat_file)
 
@@ -479,7 +355,6 @@ def generate_full_report(
     else:
         stem = chat_file.stem.replace(" ", "_")
     html_path = output_dir / f"{stem}_report.html"
-    pdf_path = output_dir / f"{stem}_report.pdf" if generate_pdf else None
     static_path = output_dir / f"{stem}_report_static.html" if generate_static else None
 
     # Format peak hour data
@@ -508,20 +383,6 @@ def generate_full_report(
     if not quiet:
         print(f"[+] HTML report saved: {html_path}")
 
-    # Generate PDF if requested
-    if generate_pdf and pdf_path:
-        try:
-            generate_pdf_report(html_path, pdf_path, quiet=quiet)
-        except ImportError:
-            if not quiet:
-                print("[!] Skipping PDF generation (Playwright not available)")
-                print("[!] Install with: uv add playwright && playwright install webkit")
-            pdf_path = None
-        except Exception as e:
-            if not quiet:
-                print(f"[!] PDF generation failed: {e}")
-            pdf_path = None
-
     # Generate static HTML if requested
     if generate_static and static_path:
         try:
@@ -536,7 +397,7 @@ def generate_full_report(
                 print(f"[!] Static HTML generation failed: {e}")
             static_path = None
 
-    return html_path, pdf_path, static_path
+    return html_path, static_path
 
 
 def main():
@@ -550,7 +411,6 @@ def main():
 Examples:
   whatsapp-wrapped chat.zip
   whatsapp-wrapped chat.txt --output reports/
-  whatsapp-wrapped chat.zip --pdf --year 2024
   whatsapp-wrapped chat.zip --static --year 2024
   whatsapp-wrapped chat.zip --name "My Group 2024" --year 2024
   whatsapp-wrapped chat.zip --quiet
@@ -567,12 +427,6 @@ Examples:
         "--output",
         help="Output directory or file path (default: current directory)",
         default=None,
-    )
-
-    parser.add_argument(
-        "--pdf",
-        action="store_true",
-        help="Also generate PDF report",
     )
 
     parser.add_argument(
@@ -637,13 +491,12 @@ Examples:
         print()
 
     try:
-        html_path, pdf_path, static_path = generate_full_report(
+        html_path, static_path = generate_full_report(
             chat_file=chat_file,
             output_dir=args.output,
             year_filter=args.year,
             min_messages=args.min_messages,
             report_name=args.name,
-            generate_pdf=args.pdf,
             generate_static=args.static,
             fixed_layout=args.fixed_layout,
             quiet=args.quiet,
@@ -656,8 +509,6 @@ Examples:
             print("=" * 60)
             print()
             print(f"  HTML: {html_path}")
-            if pdf_path:
-                print(f"  PDF:  {pdf_path}")
             if static_path:
                 print(f"  Static HTML: {static_path}")
             print()

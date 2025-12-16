@@ -33,7 +33,7 @@
 | 📈 **Rich Analytics** | 🎨 **Interactive Charts** | 👥 **User Insights** |
 | Message counts, patterns & emoji stats | Beautiful Plotly visualizations | Top contributors & activity sparklines |
 | 📅 **Calendar Heatmaps** | 📄 **Multiple Formats** | 🔒 **100% Private** |
-| Year-at-a-glance activity view | HTML (Desktop), Static HTML (Mobile), or PDF | All processing stays on your device |
+| Year-at-a-glance activity view | HTML (Desktop), Static HTML (Mobile) | All processing stays on your device |
 
 ---
 
@@ -61,7 +61,7 @@ uv run whatsapp-wrapped your-chat.zip
 
 > 💡 Don't have `uv`? Install it: `curl -LsSf https://astral.sh/uv/install.sh | sh` (macOS/Linux) or `irm https://astral.sh/uv/install.ps1 | iex` (Windows)
 
-Run `uv run whatsapp-wrapped --help` for all options (year filter, PDF export, static HTML, and more).
+Run `uv run whatsapp-wrapped --help` for all options (year filter, static HTML, and more).
 
 ---
 

@@ -143,31 +143,6 @@ def test_custom_report_name(chat_file_path, tmp_path, monkeypatch):
     assert custom_name in html_files[0].name
 
 
-def test_pdf_flag_skip_if_unavailable(chat_file_path, tmp_path, monkeypatch):
-    """Test --pdf flag attempts PDF generation (skips if Playwright unavailable)."""
-    monkeypatch.chdir(tmp_path)
-    
-    try:
-        from playwright.async_api import async_playwright
-        playwright_available = True
-    except ImportError:
-        playwright_available = False
-    
-    with patch("sys.argv", ["whatsapp-wrapped", str(chat_file_path), "--pdf", "--quiet"]):
-        main()
-    
-    # HTML should always be created
-    html_files = list(tmp_path.glob("*_report.html"))
-    assert len(html_files) == 1
-    
-    # PDF only created if Playwright is available and Chromium is installed
-    pdf_files = list(tmp_path.glob("*_report.pdf"))
-    if playwright_available:
-        # May or may not succeed - depends on chromium being installed
-        assert len(pdf_files) >= 0
-    # If not available, PDF generation is skipped gracefully
-
-
 def test_multiple_options_combined(chat_file_path, tmp_path):
     """Test combining multiple CLI options."""
     output_dir = tmp_path / "combined_test"
@@ -195,6 +170,7 @@ def test_multiple_options_combined(chat_file_path, tmp_path):
         assert output_dir.exists()
         html_files = list(output_dir.glob("*_report.html"))
         assert len(html_files) == 1
+
 
 
 

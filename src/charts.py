@@ -2,10 +2,8 @@
 WhatsApp Chat Charts Module
 
 Generates Plotly charts with a modern dark aesthetic.
-Supports both interactive HTML embeds and static PNG exports for PDF.
 """
 
-import base64
 from typing import Any
 
 import pandas as pd
@@ -130,17 +128,6 @@ def chart_to_html(fig: go.Figure, include_plotlyjs: bool = False) -> str:
             "responsive": True,
         },
     )
-
-
-def chart_to_png_base64(fig: go.Figure, width: int = 800, height: int = 400) -> str:
-    """Convert a Plotly figure to a base64-encoded PNG for PDF embedding."""
-    try:
-        img_bytes = fig.to_image(format="png", width=width, height=height, scale=2)
-        b64 = base64.b64encode(img_bytes).decode("utf-8")
-        return f"data:image/png;base64,{b64}"
-    except Exception:
-        # Fallback if kaleido is not available
-        return ""
 
 
 def create_messages_by_hour_chart(messages_by_hour: pd.Series) -> go.Figure:
@@ -837,26 +824,6 @@ class ChartCollection:
 
         if self.emojis:
             charts["emojis"] = chart_to_html(self.emojis, False)
-        else:
-            charts["emojis"] = ""
-
-        return charts
-
-    def to_png_dict(self) -> dict[str, str]:
-        """Convert all charts to base64 PNG images for PDF."""
-        charts = {
-            "messages_by_hour": chart_to_png_base64(self.messages_by_hour),
-            "messages_by_weekday": chart_to_png_base64(self.messages_by_weekday),
-            "timeline": chart_to_png_base64(self.timeline, height=300),
-            "top_users": chart_to_png_base64(self.top_users, height=400),
-            "message_types": chart_to_png_base64(self.message_types, height=350),
-            "hourly_heatmap": chart_to_png_base64(self.hourly_heatmap, height=400),
-            "monthly": chart_to_png_base64(self.monthly, height=300),
-            "calendar_heatmap": chart_to_png_base64(self.calendar_heatmap, height=500),
-        }
-
-        if self.emojis:
-            charts["emojis"] = chart_to_png_base64(self.emojis, height=350)
         else:
             charts["emojis"] = ""
 
