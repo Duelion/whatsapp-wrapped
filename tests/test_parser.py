@@ -355,6 +355,76 @@ def test_media_placeholder_detection():
     assert df["message_type"][2] == "text"
 
 
+def test_media_placeholder_localization():
+    """Test that media placeholders work across different WhatsApp localizations.
+
+    Uses language-agnostic detection: if a short message (2-3 words) starts with
+    a media keyword, it's treated as that media type regardless of language.
+    """
+    # Spanish localizations
+    chat_spanish = """21-06-23, 11:00:23 - Leonardo: Video omitido
+21-06-23, 11:20:04 - Cristhian: sticker omitido
+21-06-23, 11:30:00 - Leonardo: imagen omitida
+21-06-23, 11:35:00 - Cristhian: audio omitido
+21-06-23, 11:40:00 - Leonardo: documento omitido"""
+
+    df = parse_chat(chat_spanish)
+    assert len(df) == 5
+    assert df["message_type"][0] == "video"
+    assert df["message_type"][1] == "sticker"
+    assert df["message_type"][2] == "image"
+    assert df["message_type"][3] == "audio"
+    assert df["message_type"][4] == "document"
+
+    # English localizations
+    chat_english = """12/25/23, 10:30 - Alice: video omitted
+12/25/23, 10:31 - Bob: sticker omitted
+12/25/23, 10:32 - Alice: audio omitted
+12/25/23, 10:33 - Bob: document omitted
+12/25/23, 10:34 - Alice: contact card omitted"""
+
+    df = parse_chat(chat_english)
+    assert len(df) == 5
+    assert df["message_type"][0] == "video"
+    assert df["message_type"][1] == "sticker"
+    assert df["message_type"][2] == "audio"
+    assert df["message_type"][3] == "document"
+    assert df["message_type"][4] == "contact"
+
+    # Mixed/hypothetical localizations (German, French, etc.)
+    # The heuristic should work for ANY language since we only check first word
+    chat_other = """12/25/23, 10:30 - Hans: Video weggelassen
+12/25/23, 10:31 - Pierre: sticker absent
+12/25/23, 10:32 - Ana: foto omitida
+12/25/23, 10:33 - Bob: GIF missing"""
+
+    df = parse_chat(chat_other)
+    assert len(df) == 4
+    assert df["message_type"][0] == "video"
+    assert df["message_type"][1] == "sticker"
+    assert df["message_type"][2] == "image"  # foto -> image
+    assert df["message_type"][3] == "gif"
+
+
+def test_media_placeholder_false_positive_avoidance():
+    """Test that regular messages starting with media keywords are NOT misclassified.
+
+    Only short messages (2-3 words) should be classified as media placeholders.
+    """
+    chat_normal = """12/25/23, 10:30 - Alice: Video of my cat is so cute
+12/25/23, 10:31 - Bob: I love video games and movies
+12/25/23, 10:32 - Alice: Sticker collection is amazing
+12/25/23, 10:33 - Bob: Audio equipment is expensive these days"""
+
+    df = parse_chat(chat_normal)
+    assert len(df) == 4
+    # All should be text since they're more than 3 words
+    assert df["message_type"][0] == "text"
+    assert df["message_type"][1] == "text"
+    assert df["message_type"][2] == "text"
+    assert df["message_type"][3] == "text"
+
+
 def test_empty_message_handling():
     """Test that empty messages don't crash the parser."""
     chat_with_empty = """12/25/23, 10:30 - Alice:

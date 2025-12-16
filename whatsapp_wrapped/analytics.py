@@ -332,14 +332,20 @@ def extract_word_frequencies(df: pl.DataFrame, min_word_length: int = 3) -> pl.D
     return word_freq_df
 
 
+# Regex pattern for media placeholder messages (language-agnostic)
+# Matches short messages (2-3 words) starting with a media keyword
+MEDIA_PLACEHOLDER_PATTERN = r"^[\u200e\u200f]*<?(image|imagen|foto|photo|media|video|vídeo|audio|sticker|gif|document|documento|contact|location|ubicación)(\s+\S+){1,2}>?$"
+
+
 def get_word_count(text: str) -> int:
     """Count words in a message, excluding media placeholders."""
     if text is None:
         return 0
     # Remove URLs
     text = re.sub(r"https?://\S+", "", str(text))
-    # Remove media omitted placeholders
-    text = re.sub(r"\w+ omitted", "", text)
+    # Remove media omitted placeholders (language-agnostic: matches any 2-3 word message starting with media keyword)
+    if re.match(MEDIA_PLACEHOLDER_PATTERN, text.strip().lower()):
+        return 0
     words = text.split()
     return len(words)
 
@@ -355,12 +361,17 @@ def calculate_user_stats(
 
     # Word count (reuse pre-calculated if available)
     if "word_count" not in user_df.columns:
+        # Filter to text messages only (excludes media placeholders already classified)
+        # and remove URLs before counting words
         user_df = user_df.with_columns(
-            pl.col("message")
-            .str.replace_all(r"https?://\S+", "")  # Remove URLs
-            .str.replace_all(r"\w+ omitted", "")   # Remove media placeholders
-            .str.split(" ")
-            .list.len()
+            pl.when(pl.col("message_type") == "text")
+            .then(
+                pl.col("message")
+                .str.replace_all(r"https?://\S+", "")  # Remove URLs
+                .str.split(" ")
+                .list.len()
+            )
+            .otherwise(pl.lit(0))
             .fill_null(0)
             .alias("word_count")
         )
@@ -511,12 +522,16 @@ def analyze_chat(df: pl.DataFrame) -> ChatAnalytics:
     messages_per_day = round(total_messages / num_days, 1)
 
     # Calculate total words using native Polars expressions (faster than map_elements)
+    # Only count words in text messages (media placeholders are already classified)
     df = df.with_columns(
-        pl.col("message")
-        .str.replace_all(r"https?://\S+", "")  # Remove URLs
-        .str.replace_all(r"\w+ omitted", "")   # Remove media placeholders
-        .str.split(" ")
-        .list.len()
+        pl.when(pl.col("message_type") == "text")
+        .then(
+            pl.col("message")
+            .str.replace_all(r"https?://\S+", "")  # Remove URLs
+            .str.split(" ")
+            .list.len()
+        )
+        .otherwise(pl.lit(0))
         .fill_null(0)
         .alias("word_count")
     )

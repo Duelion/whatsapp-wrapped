@@ -281,34 +281,55 @@ def _detect_date_order(raw_text: str) -> str:
     return "ambiguous"
 
 
+# Media keywords mapped to their type - used for language-agnostic detection
+# If a short message (2-3 words) starts with one of these, it's a media placeholder
+MEDIA_KEYWORDS = {
+    "video": "video",
+    "vídeo": "video",
+    "image": "image",
+    "imagen": "image",
+    "foto": "image",
+    "photo": "image",
+    "audio": "audio",
+    "sticker": "sticker",
+    "gif": "gif",
+    "document": "document",
+    "documento": "document",
+    "contact": "contact",  # handles "contact card ..."
+    "media": "image",  # generic <Media omitted>
+    "location": "location",
+    "ubicación": "location",
+}
+
+
 def _classify_message_type(message: str) -> str:
     """
     Classify the type of a WhatsApp message.
 
+    Uses a language-agnostic approach: if a short message (2-3 words) starts with
+    a media keyword, it's treated as that media type regardless of language.
+
     Returns one of: 'text', 'image', 'video', 'audio', 'sticker', 'gif', 'link', 'document', 'contact', 'location'
     """
-    message_lower = message.lower()
+    # Strip Unicode direction marks (LRM/RLM) that WhatsApp adds
+    clean_msg = message.strip("\u200e\u200f").strip()
 
-    # Check for omitted media patterns
-    omitted_patterns = {
-        "image": ["image omitted", "imagen omitida", "<media omitted>"],
-        "video": ["video omitted", "vídeo omitido"],
-        "audio": ["audio omitted", "audio omitido"],
-        "sticker": ["sticker omitted", "sticker omitido"],
-        "gif": ["gif omitted", "gif omitido"],
-        "document": ["document omitted", "documento omitido"],
-        "contact": ["contact card omitted", "tarjeta de contacto omitida"],
-        "location": ["location:", "ubicación:"],
-    }
+    # Handle angle bracket format: <Media omitted>
+    if clean_msg.startswith("<") and clean_msg.endswith(">"):
+        clean_msg = clean_msg[1:-1].strip()
 
-    for msg_type, patterns in omitted_patterns.items():
-        for pattern in patterns:
-            if pattern in message_lower:
-                return msg_type
-
-    # Check for links
+    # Check for links first (they can be longer)
     if re.search(r"https?://", message):
         return "link"
+
+    # Split into words and check if it's a short media placeholder
+    words = clean_msg.lower().split()
+
+    # Media placeholders are 1-3 words with a media keyword as first word
+    if 1 <= len(words) <= 3:
+        first_word = words[0]
+        if first_word in MEDIA_KEYWORDS:
+            return MEDIA_KEYWORDS[first_word]
 
     return "text"
 
@@ -424,26 +445,52 @@ def parse_chat(raw_text: str) -> pl.DataFrame:
         pl.col("name").str.replace_all(r"[^\w\s]", "").str.strip_chars().alias("name")
     ])
 
-    # Classify message types using native Polars expressions (faster than map_elements)
-    msg_lower = pl.col("message").str.to_lowercase()
+    # Classify message types using language-agnostic heuristic:
+    # If a short message (2-3 words) starts with a media keyword, it's that media type.
+    # This works across all WhatsApp localizations without needing translation lists.
+    #
+    # Pattern structure: ^[\u200e\u200f]*<?(keyword)(\s+\S+){1,2}>?$
+    # - Optional unicode direction marks at start
+    # - Optional < bracket
+    # - Media keyword
+    # - 1-2 more words (so total 2-3 words)
+    # - Optional > bracket
+
+    # Normalize: strip unicode marks, lowercase for matching
+    msg_normalized = (
+        pl.col("message")
+        .str.strip_chars("\u200e\u200f")
+        .str.strip_chars()
+        .str.to_lowercase()
+    )
+
     df = df.with_columns(
-        pl.when(msg_lower.str.contains("image omitted|imagen omitida|<media omitted>"))
+        # Image: image, imagen, foto, photo, media (generic)
+        pl.when(msg_normalized.str.contains(r"^<?(image|imagen|foto|photo|media)(\s+\S+){1,2}>?$"))
         .then(pl.lit("image"))
-        .when(msg_lower.str.contains("video omitted|vídeo omitido"))
+        # Video: video, vídeo
+        .when(msg_normalized.str.contains(r"^<?(video|vídeo)(\s+\S+){1,2}>?$"))
         .then(pl.lit("video"))
-        .when(msg_lower.str.contains("audio omitted|audio omitido"))
+        # Audio: audio
+        .when(msg_normalized.str.contains(r"^<?audio(\s+\S+){1,2}>?$"))
         .then(pl.lit("audio"))
-        .when(msg_lower.str.contains("sticker omitted|sticker omitido"))
+        # Sticker
+        .when(msg_normalized.str.contains(r"^<?sticker(\s+\S+){1,2}>?$"))
         .then(pl.lit("sticker"))
-        .when(msg_lower.str.contains("gif omitted|gif omitido"))
+        # GIF
+        .when(msg_normalized.str.contains(r"^<?gif(\s+\S+){1,2}>?$"))
         .then(pl.lit("gif"))
-        .when(msg_lower.str.contains("document omitted|documento omitido"))
+        # Document: document, documento
+        .when(msg_normalized.str.contains(r"^<?(document|documento)(\s+\S+){1,2}>?$"))
         .then(pl.lit("document"))
-        .when(msg_lower.str.contains("contact card omitted|tarjeta de contacto omitida"))
+        # Contact: contact (handles "contact card omitted" - 3 words)
+        .when(msg_normalized.str.contains(r"^<?contact(\s+\S+){1,2}>?$"))
         .then(pl.lit("contact"))
-        .when(msg_lower.str.contains("location:|ubicación:"))
+        # Location: location, ubicación (these use colon format)
+        .when(msg_normalized.str.contains(r"^<?(location|ubicación):"))
         .then(pl.lit("location"))
-        .when(pl.col("message").str.contains("https?://"))
+        # Links (check original message for URLs)
+        .when(pl.col("message").str.contains(r"https?://"))
         .then(pl.lit("link"))
         .otherwise(pl.lit("text"))
         .alias("message_type")
