@@ -263,15 +263,17 @@ def generate_static_html(
                 device_scale_factor=2,
             )
 
-            # Navigate to the HTML file
+            # Navigate to the HTML file with increased timeout for Colab environments
             file_url = html_path_resolved.as_uri()
-            await page.goto(file_url)
+            await page.goto(file_url, timeout=60000)  # 60 second timeout
 
             # Wait for the page to fully load (including Plotly charts)
-            await page.wait_for_load_state("networkidle")
+            # Use increased timeout for slower environments (e.g., Colab from desktop browsers)
+            await page.wait_for_load_state("networkidle", timeout=60000)
 
-            # Give Plotly a moment to finish rendering animations
-            await page.wait_for_timeout(1500)
+            # Give Plotly more time to finish rendering animations
+            # Increased from 1.5s to 3s for more reliable chart rendering
+            await page.wait_for_timeout(3000)
 
             # Force Plotly to redraw all charts to ensure annotations render
             await page.evaluate("""
@@ -287,7 +289,8 @@ def generate_static_html(
             """)
 
             # Wait a bit more for the relayout to complete
-            await page.wait_for_timeout(500)
+            # Increased from 0.5s to 1s for more reliable rendering
+            await page.wait_for_timeout(1000)
 
             # Get the fully rendered HTML content
             rendered_html = await page.content()
