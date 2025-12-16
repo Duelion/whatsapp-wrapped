@@ -228,7 +228,7 @@ def create_messages_by_weekday_chart(messages_by_weekday: pl.DataFrame) -> go.Fi
 
 
 def create_timeline_chart(messages_by_date: pl.DataFrame) -> go.Figure:
-    """Create a smoothed area chart showing message trend over time."""
+    """Create an area chart showing daily message counts over time."""
     if len(messages_by_date) == 0:
         return go.Figure()
 
@@ -237,24 +237,19 @@ def create_timeline_chart(messages_by_date: pl.DataFrame) -> go.Figure:
     dates = messages_by_date["date"].to_list()
     values = messages_by_date["count"].to_list()
 
-    # Apply 3-day centered rolling average for smoothing (matches sparklines)
-    values_series = pl.Series(values)
-    rolling_avg = values_series.rolling_mean(window_size=3, center=True).fill_null(strategy="forward").fill_null(strategy="backward").to_list()
-
     fig = go.Figure()
 
-    # Single smoothed line with area fill, hover shows actual daily value
+    # Raw daily values with area fill
     fig.add_trace(
         go.Scatter(
             x=dates,
-            y=rolling_avg,
+            y=values,
             fill="tozeroy",
             fillcolor="rgba(59, 130, 246, 0.1)",
             line={"color": COLORS["blue"], "width": 2},
             mode="lines",
-            name="Trend",
-            customdata=values,  # Store actual daily values for hover
-            hovertemplate="<b>%{x|%b %d}</b>: %{customdata:,} msgs<extra></extra>",
+            name="Messages",
+            hovertemplate="<b>%{x|%b %d}</b>: %{y:,} msgs<extra></extra>",
         )
     )
 
@@ -657,29 +652,37 @@ def create_calendar_heatmap(messages_by_date: pl.DataFrame) -> go.Figure:
         )
     )
 
-    # Generate month labels for x-axis
+    # Generate month labels for x-axis - place labels at the week containing the 15th
+    # This provides a more centered and intuitive month label position
     month_ticks = []
     month_labels = []
+    seen_months = set()
+    
     current_date = start_date
     week_num = 0
-    last_month = None
-
+    
     while current_date <= end_date:
-        current_month = current_date.month
-        if current_month != last_month:
-            month_ticks.append(week_num)
-            month_labels.append(current_date.strftime("%b"))
-            last_month = current_month
-
-        # Move to next week (jump by 7 days)
-        day_of_week = (current_date.weekday() + 1) % 7
-        if day_of_week == 6:
+        # Check if this is around mid-month (10th-20th) for better label placement
+        month_key = (current_date.year, current_date.month)
+        if month_key not in seen_months and 10 <= current_date.day <= 20:
+            # Only add if this week hasn't been labeled yet
+            if not month_ticks or month_ticks[-1] != week_num:
+                month_ticks.append(week_num)
+                month_labels.append(current_date.strftime("%b"))
+                seen_months.add(month_key)
+        
+        # Move to next day and track week transitions
+        day_of_week = (current_date.weekday() + 1) % 7  # Sun=0
+        if day_of_week == 6:  # Saturday = end of week
             week_num += 1
         current_date += timedelta(days=1)
 
     # Day labels (Sun to Sat, but only show Mon, Wed, Fri for compactness)
     day_labels = ["", "Mon", "", "Wed", "", "Fri", ""]
 
+    # Calculate number of weeks for proper aspect ratio
+    num_weeks = week_num + 1
+    
     fig.update_layout(
         paper_bgcolor=COLORS["paper"],
         plot_bgcolor=COLORS["background"],
@@ -699,6 +702,7 @@ def create_calendar_heatmap(messages_by_date: pl.DataFrame) -> go.Figure:
             "showgrid": False,
             "zeroline": False,
             "side": "top",
+            "constrain": "domain",
         },
         yaxis={
             "tickmode": "array",
@@ -708,6 +712,9 @@ def create_calendar_heatmap(messages_by_date: pl.DataFrame) -> go.Figure:
             "showgrid": False,
             "zeroline": False,
             "autorange": "reversed",  # Sun at top, Sat at bottom
+            "scaleanchor": "x",
+            "scaleratio": 1,
+            "constrain": "domain",
         },
         hoverlabel={
             "bgcolor": COLORS["surface"],
