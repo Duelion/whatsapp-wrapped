@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.generator import main
+from whatsapp_wrapped.generator import main
 
 
 def test_chat_file_required():
@@ -82,7 +82,7 @@ def test_year_filter_option(chat_file_path, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     # Get full data first
-    from src.parser import parse_whatsapp_export
+    from whatsapp_wrapped.parser import parse_whatsapp_export
 
     df_full, _ = parse_whatsapp_export(chat_file_path, filter_system=True)
 
@@ -155,7 +155,7 @@ def test_multiple_options_combined(chat_file_path, tmp_path):
     """Test combining multiple CLI options."""
     output_dir = tmp_path / "combined_test"
 
-    from src.parser import parse_whatsapp_export
+    from whatsapp_wrapped.parser import parse_whatsapp_export
 
     df_full, _ = parse_whatsapp_export(chat_file_path, filter_system=True)
     available_years = df_full["timestamp"].dt.year.unique()

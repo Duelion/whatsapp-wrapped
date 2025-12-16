@@ -4,7 +4,7 @@ Basic tests for WhatsApp chat parser.
 
 from datetime import datetime
 
-from src.parser import (
+from whatsapp_wrapped.parser import (
     _detect_date_order,
     _parse_timestamp,
     filter_bot_users,
@@ -103,7 +103,7 @@ def test_system_message_filtering(chat_file_path):
 
 def test_bot_user_filtering(chat_file_path):
     """Test that bot users like Meta AI are filtered out."""
-    from src.parser import load_chat_file, parse_chat
+    from whatsapp_wrapped.parser import load_chat_file, parse_chat
 
     # Load and parse without bot filtering
     raw_text = load_chat_file(chat_file_path)

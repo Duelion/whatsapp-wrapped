@@ -2,7 +2,7 @@
 Integration tests for analytics module.
 """
 
-from src.analytics import analyze_chat, calculate_user_stats
+from whatsapp_wrapped.analytics import analyze_chat, calculate_user_stats
 
 
 def test_analyze_chat_returns_valid_structure(chat_data_3months):

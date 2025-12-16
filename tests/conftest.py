@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from src.parser import parse_whatsapp_export
+from whatsapp_wrapped.parser import parse_whatsapp_export
 
 # Fix Windows console encoding
 if sys.platform == "win32":

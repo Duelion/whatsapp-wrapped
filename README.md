@@ -63,10 +63,24 @@ uv run whatsapp-wrapped your-chat.zip
 
 **Available Options:**
 - `--year 2024` - Filter messages to a specific year
-- `--static` - Generate mobile-friendly static HTML
+- `--static` - Generate mobile-friendly static HTML (requires optional `static` dependencies)
 - `--output reports/` - Custom output directory
 - `--quiet` - Suppress progress messages
 - `--help` - Show all available options
+
+#### Optional: Static HTML Generation
+
+For mobile-friendly reports that work without JavaScript, install the optional static HTML dependencies:
+
+```bash
+# Install with static HTML support
+uv pip install -e ".[static]"
+
+# Then install Playwright browsers
+uv run playwright install webkit
+```
+
+The `--static` flag will then generate a pre-rendered HTML file perfect for mobile devices.
 
 ---
 
@@ -85,6 +99,37 @@ Your conversations never leave your device. WhatsApp Wrapped:
 - ✅ Runs entirely offline (after install)
 - ✅ Never uploads or shares your data
 - ✅ Generates reports locally
+
+---
+
+## 📦 Installation Options
+
+### Basic Installation (Recommended)
+
+The basic installation includes everything you need for interactive HTML reports:
+
+```bash
+# Using pip
+pip install whatsapp-wrapped
+
+# Using uv (faster)
+uv pip install whatsapp-wrapped
+```
+
+### With Optional Features
+
+**Static HTML Generation** - For mobile-friendly reports without JavaScript:
+
+```bash
+pip install whatsapp-wrapped[static]
+playwright install webkit
+```
+
+**Development** - For contributors:
+
+```bash
+pip install whatsapp-wrapped[dev]
+```
 
 ---
 
