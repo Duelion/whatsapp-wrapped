@@ -42,6 +42,7 @@ class ChatAnalytics:
     total_messages: int
     total_members: int
     total_words: int
+    total_days: int
     messages_per_day: float
     most_active_day: str
     most_active_hour: int
@@ -671,6 +672,7 @@ def analyze_chat(df: pl.DataFrame) -> ChatAnalytics:
         total_messages=total_messages,
         total_members=total_members,
         total_words=total_words,
+        total_days=num_days,
         messages_per_day=messages_per_day,
         most_active_day=most_active_day,
         most_active_hour=most_active_hour,
