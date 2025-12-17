@@ -201,6 +201,69 @@ def extract_word_frequencies(df: pl.DataFrame, min_word_length: int = 3) -> pl.D
             "gif",
             "document",
             "edited",
+            # "message" in multiple languages (singular/plural)
+            "messages",  # English plural
+            "mensaje",
+            "mensajes",  # Spanish
+            "mensagem",
+            "mensagens",  # Portuguese
+            "nachricht",
+            "nachrichten",  # German
+            "messaggio",
+            "messaggi",  # Italian
+            "bericht",
+            "berichten",  # Dutch
+            "сообщение",
+            "сообщения",  # Russian
+            "mesaj",
+            "mesajlar",  # Turkish
+            "رسالة",
+            "رسائل",  # Arabic
+            # "deleted" in multiple languages (singular/plural, masculine/feminine)
+            "eliminado",
+            "eliminados",
+            "eliminada",
+            "eliminadas",  # Spanish
+            "borrado",
+            "borrados",
+            "borrada",
+            "borradas",  # Spanish (alternative)
+            "excluído",
+            "excluídos",
+            "excluída",
+            "excluídas",  # Portuguese
+            "deletado",
+            "deletados",
+            "apagado",
+            "apagados",  # Portuguese (alternative)
+            "supprimé",
+            "supprimés",
+            "supprimée",
+            "supprimées",  # French
+            "effacé",
+            "effacés",
+            "effacée",
+            "effacées",  # French (alternative)
+            "gelöscht",
+            "gelöschte",  # German
+            "eliminato",
+            "eliminati",
+            "eliminata",
+            "eliminate",  # Italian
+            "cancellato",
+            "cancellati",
+            "cancellata",
+            "cancellate",  # Italian (alternative)
+            "verwijderd",
+            "verwijderde",  # Dutch
+            "удалено",
+            "удалён",
+            "удалена",
+            "удалены",  # Russian
+            "silindi",
+            "silinmiş",  # Turkish
+            "محذوف",
+            "محذوفة",  # Arabic
         }
     )
 
@@ -310,6 +373,9 @@ def extract_word_frequencies(df: pl.DataFrame, min_word_length: int = 3) -> pl.D
 
     # Unicode-aware regex for letters only (no digits, no punctuation)
     token_re = re.compile(r"[^\W\d_]+", re.UNICODE)
+    
+    # Regex to remove mentions (@usuario, @numero, etc.)
+    mention_re = re.compile(r"@[\w\d]+", re.UNICODE)
 
     # Collect all words from text messages only
     all_words = []
@@ -318,8 +384,10 @@ def extract_word_frequencies(df: pl.DataFrame, min_word_length: int = 3) -> pl.D
     for msg in text_messages:
         if msg is None:
             continue
+        # Remove mentions from the message before tokenizing
+        msg_clean = mention_re.sub("", str(msg))
         # Tokenize and filter
-        tokens = token_re.findall(str(msg).lower())
+        tokens = token_re.findall(msg_clean.lower())
         filtered = [t for t in tokens if len(t) >= min_word_length and t not in stopwords]
         all_words.extend(filtered)
 
