@@ -188,7 +188,9 @@ def extract_word_frequencies(df: pl.DataFrame, min_word_length: int = 3) -> pl.D
             "www",
             "com",
             "omitted",
+            "omitido",  # Spanish "omitted"
             "media",
+            "multimedia",
             "image",
             "video",
             "audio",
@@ -334,7 +336,7 @@ def extract_word_frequencies(df: pl.DataFrame, min_word_length: int = 3) -> pl.D
 
 # Regex pattern for media placeholder messages (language-agnostic)
 # Matches short messages (2-3 words) starting with a media keyword
-MEDIA_PLACEHOLDER_PATTERN = r"^[\u200e\u200f]*<?(image|imagen|foto|photo|media|video|vídeo|audio|sticker|gif|document|documento|contact|location|ubicación)(\s+\S+){1,2}>?$"
+MEDIA_PLACEHOLDER_PATTERN = r"^[\u200e\u200f]*<?(image|imagen|foto|photo|media|multimedia|video|vídeo|audio|sticker|gif|document|documento|contact|location|ubicación)(\s+\S+){1,2}>?$"
 
 
 def get_word_count(text: str) -> int:

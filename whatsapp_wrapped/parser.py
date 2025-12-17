@@ -37,6 +37,9 @@ DATE_FORMATS = [
     "%d-%m-%y, %H:%M",  # Without seconds
     "%d/%m/%y, %H:%M",
     "%m/%d/%y, %H:%M",
+    "%d-%m-%Y, %H:%M",  # DD-MM-YYYY without seconds
+    "%d/%m/%Y, %H:%M",  # DD/MM/YYYY without seconds (Spanish/LATAM format)
+    "%m/%d/%Y, %H:%M",  # MM/DD/YYYY without seconds
     "%Y-%m-%d, %H:%M:%S",  # ISO-ish format
     "%d.%m.%y, %H:%M:%S",  # German format with dots
     "%d.%m.%Y, %H:%M:%S",
@@ -297,6 +300,7 @@ MEDIA_KEYWORDS = {
     "documento": "document",
     "contact": "contact",  # handles "contact card ..."
     "media": "image",  # generic <Media omitted>
+    "multimedia": "image",  # Spanish Android: <Multimedia omitido>
     "location": "location",
     "ubicación": "location",
 }
@@ -349,6 +353,7 @@ def parse_chat(raw_text: str) -> pl.DataFrame:
     # Split by newlines that start a new message (with timestamp)
     # Handle both \r\n and \n line endings
     raw_text = raw_text.replace("\r\n", "\n")
+    lines = raw_text.split("\n")
 
     # Detect date order (DD/MM vs MM/DD) to prioritize correct formats
     date_order = _detect_date_order(raw_text)
@@ -374,12 +379,10 @@ def parse_chat(raw_text: str) -> pl.DataFrame:
     for pattern_idx, pattern in enumerate(MESSAGE_PATTERNS):
         # Split text into potential message blocks
         # Messages can span multiple lines, so we need to handle continuations
-        lines = raw_text.split("\n")
-
         current_message = None
         cached_format = [None]  # Mutable cache for date format
 
-        for line in lines:
+        for line_idx, line in enumerate(lines):
             # Strip Unicode direction marks (LRM/RLM) that can appear at line start
             line = line.lstrip("\u200e\u200f")
 
@@ -465,8 +468,8 @@ def parse_chat(raw_text: str) -> pl.DataFrame:
     )
 
     df = df.with_columns(
-        # Image: image, imagen, foto, photo, media (generic)
-        pl.when(msg_normalized.str.contains(r"^<?(image|imagen|foto|photo|media)(\s+\S+){1,2}>?$"))
+        # Image: image, imagen, foto, photo, media (generic), multimedia (Spanish Android)
+        pl.when(msg_normalized.str.contains(r"^<?(image|imagen|foto|photo|media|multimedia)(\s+\S+){1,2}>?$"))
         .then(pl.lit("image"))
         # Video: video, vídeo
         .when(msg_normalized.str.contains(r"^<?(video|vídeo)(\s+\S+){1,2}>?$"))

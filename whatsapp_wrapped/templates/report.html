@@ -1543,12 +1543,14 @@
                     <div class="highlight-value">{{ analytics.emoji_diversity }} unique</div>
                     <div class="highlight-detail">Different emojis used</div>
                 </div>
+                {% if analytics.total_stickers > 0 %}
                 <div class="highlight-card">
                     <div class="highlight-icon">🎨</div>
                     <div class="highlight-label">Total Stickers</div>
                     <div class="highlight-value">{{ "{:,}".format(analytics.total_stickers) }}</div>
                     <div class="highlight-detail">Stickers shared in chat</div>
                 </div>
+                {% endif %}
             </div>
         </section>
 
