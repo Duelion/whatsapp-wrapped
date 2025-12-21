@@ -43,6 +43,7 @@ DATE_FORMATS = [
     "%Y-%m-%d, %H:%M:%S",  # ISO-ish format
     "%d.%m.%y, %H:%M:%S",  # German format with dots
     "%d.%m.%Y, %H:%M:%S",
+    "%d.%m.%Y, %H:%M",  # DD.MM.YYYY, HH:MM (German format with dots, 4-digit year, no seconds)
     # 12-hour AM/PM formats
     "%m/%d/%y, %I:%M:%S %p",  # US 12-hour with seconds: 12/25/23, 3:45:30 PM
     "%m/%d/%y, %I:%M %p",  # US 12-hour: 12/25/23, 3:45 PM
