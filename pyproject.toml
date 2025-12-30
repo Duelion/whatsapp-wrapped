@@ -1,6 +1,6 @@
 [project]
 name = "whatsapp-wrapped"
-version = "1.0.0"
+version = "1.0.1"
 description = "A beautiful visualization project inspired by Spotify Wrapped, but for WhatsApp group chats"
 readme = "README.md"
 requires-python = ">=3.10"
