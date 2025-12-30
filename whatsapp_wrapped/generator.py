@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-import nest_asyncio
 from jinja2 import Environment, FileSystemLoader
 
 from .analytics import ChatAnalytics, analyze_chat, calculate_badges, format_hour, get_hour_emoji
@@ -352,10 +351,22 @@ def generate_static_html(
 
     if loop is not None:
         # Running inside an existing event loop (e.g., Jupyter/Colab)
-        # Use nest_asyncio to allow nested async calls
-        nest_asyncio.apply()
-        # Use the existing loop instead of creating a new one
-        return loop.run_until_complete(_generate_static())
+        # Instead of using nest_asyncio which corrupts the kernel's event loop state,
+        # run the async code in a new event loop on a separate thread.
+        # This prevents the "IndexError: pop from an empty deque" crash in Colab.
+        import concurrent.futures
+
+        def run_in_new_loop():
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            try:
+                return new_loop.run_until_complete(_generate_static())
+            finally:
+                new_loop.close()
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(run_in_new_loop)
+            return future.result()
     else:
         # No existing loop - create a new one (normal CLI usage)
         return asyncio.run(_generate_static())
